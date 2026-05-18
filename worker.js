@@ -1,6 +1,7 @@
-// NEXUS-X ARIA v0.1.5 – Cloudflare Workers single-file
-// Provides GET /, /health, /demo, /docs, /test-pack, /openapi.json, POST /score-airdrop and OPTIONS.
-// Risk scoring heuristics remain unchanged.
+// NEXUS-X ARIA v0.1.7 – Cloudflare Workers single-file
+// Adds GET /try browser form for custom airdrop risk scoring.
+// Provides GET /, /health, /demo, /docs, /try, /test-pack, /openapi.json, POST /score-airdrop and OPTIONS.
+// Risk scoring heuristics remain unchanged from v0.1.5.
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type"
 };
 
-const VERSION = "0.1.5";
+const VERSION = "0.1.7";
 
 const KNOWN_CHAINS = [
   "ethereum", "arbitrum", "polygon", "optimism", "base",
@@ -253,6 +254,7 @@ const DOCS_HTML = `<!DOCTYPE html>
   pre { background: #f6f8fa; padding: 1rem; overflow-x: auto; border-radius: 4px; }
   code { font-family: monospace; }
   ul { padding-left: 1.2rem; }
+  a { color: #2563eb; }
 </style>
 </head>
 <body>
@@ -268,11 +270,15 @@ const DOCS_HTML = `<!DOCTYPE html>
 <li><strong>GET /</strong> – Halaman landing sederhana.</li>
 <li><strong>GET /health</strong> – Mengembalikan status API dan versi.</li>
 <li><strong>GET /demo</strong> – Menjalankan analisis risiko dengan contoh input internal.</li>
+<li><strong>GET /try</strong> – Browser form untuk mencoba input airdrop custom.</li>
 <li><strong>GET /docs</strong> – Dokumentasi HTML ini.</li>
 <li><strong>GET /test-pack</strong> – Menjalankan paket pengujian heuristik otomatis.</li>
 <li><strong>GET /openapi.json</strong> – Mengembalikan spesifikasi OpenAPI JSON.</li>
 <li><strong>POST /score-airdrop</strong> – Menerima JSON airdrop dan mengembalikan hasil analisis.</li>
 </ul>
+
+<h2>Try Page</h2>
+<p>Coba analisis custom langsung dari browser: <a href="/try">/try</a></p>
 
 <h2>OpenAPI</h2>
 <p>Machine-readable OpenAPI specification tersedia di <code>/openapi.json</code>.</p>
@@ -329,8 +335,8 @@ const LANDING_HTML = `<!DOCTYPE html>
   body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.4; text-align: center; }
   h1 { color: #2c3e50; margin-bottom: 0.5em; }
   h2 { color: #34495e; margin-top: 0; }
-  p { max-width: 600px; margin: 1rem auto; }
-  .links a { display: inline-block; margin: 0.5rem; padding: 0.5rem 1rem; background: #3498db; color: #fff; text-decoration: none; border-radius: 4px; }
+  p { max-width: 650px; margin: 1rem auto; }
+  .links a { display: inline-block; margin: 0.5rem; padding: 0.55rem 1rem; background: #3498db; color: #fff; text-decoration: none; border-radius: 4px; }
   .links a:hover { background: #2980b9; }
   footer { margin-top: 2rem; font-size: 0.8rem; color: #555; }
 </style>
@@ -340,6 +346,7 @@ const LANDING_HTML = `<!DOCTYPE html>
 <h2>Airdrop Risk Intelligence API</h2>
 <p>Version ${VERSION} – transparent airdrop risk scoring for Web3 projects.</p>
 <div class="links">
+  <a href="/try">Try It</a>
   <a href="/demo">Demo</a>
   <a href="/docs">Docs</a>
   <a href="/test-pack">Test Pack</a>
@@ -347,8 +354,148 @@ const LANDING_HTML = `<!DOCTYPE html>
   <a href="/health">Health</a>
 </div>
 <p>Endpoint <code>/score-airdrop</code> is available for technical integration via POST JSON.</p>
-<footer>Disclaimer: analysis does not guarantee safety. Always do your own research.</footer>
+<footer>Disclaimer: analysis does not guarantee safety. Always do your own research. Never enter seed phrases, private keys, passwords, OTPs, or wallet credentials.</footer>
 </body></html>`;
+
+const TRY_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NEXUS-X ARIA Try Page</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.5; max-width: 900px; }
+  h1, h2 { color: #2c3e50; }
+  label { display: block; margin-top: 1rem; font-weight: bold; }
+  input, textarea { width: 100%; padding: 0.6rem; margin-top: 0.25rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif; }
+  textarea { min-height: 90px; }
+  button { margin-top: 1rem; padding: 0.7rem 1.2rem; border: 0; border-radius: 4px; background: #3498db; color: white; font-weight: bold; cursor: pointer; }
+  button:hover { background: #2980b9; }
+  .warning { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.8rem; border-radius: 4px; }
+  .result { margin-top: 1.5rem; padding: 1rem; border-radius: 6px; background: #f6f8fa; white-space: pre-wrap; }
+  .small { color: #555; font-size: 0.9rem; }
+  .nav a { margin-right: 0.75rem; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">Home</a>
+  <a href="/docs">Docs</a>
+  <a href="/demo">Demo</a>
+  <a href="/test-pack">Test Pack</a>
+</div>
+
+<h1>NEXUS-X ARIA Try Page</h1>
+<p><strong>Version:</strong> ${VERSION}</p>
+
+<div class="warning">
+  <strong>Safety warning:</strong> Do not enter private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials.
+  This tool provides heuristic analysis only and does not guarantee safety.
+</div>
+
+<form id="aria-form">
+  <label for="project_name">Project Name</label>
+  <input id="project_name" value="Example Airdrop" required>
+
+  <label for="official_url">Official URL</label>
+  <input id="official_url" value="https://example-airdrop.com">
+
+  <label for="description">Description</label>
+  <textarea id="description" required>Claim free tokens by connecting your wallet and signing a message.</textarea>
+
+  <label for="required_tasks">Required Tasks</label>
+  <textarea id="required_tasks" required>connect wallet
+join Discord
+sign message</textarea>
+  <p class="small">One task per line, or separate with commas.</p>
+
+  <label for="chain">Chain</label>
+  <input id="chain" value="Base">
+
+  <label for="token_contract">Token Contract</label>
+  <input id="token_contract" value="">
+
+  <label for="social_links">Social Links</label>
+  <textarea id="social_links">https://twitter.com/example
+https://discord.gg/example</textarea>
+  <p class="small">One link per line, or separate with commas.</p>
+
+  <button type="submit">Analyze Risk</button>
+</form>
+
+<h2>Result</h2>
+<div id="result" class="result">Submit the form to see a risk analysis.</div>
+
+<script>
+function splitList(value) {
+  return value
+    .split(/\\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function renderResult(data) {
+  if (data.error) {
+    return "Error: " + data.error;
+  }
+
+  const lines = [];
+  lines.push("Risk Score: " + data.risk_score);
+  lines.push("Risk Level: " + data.risk_level);
+  lines.push("Verdict: " + data.verdict);
+  lines.push("");
+
+  lines.push("Red Flags:");
+  if (data.red_flags && data.red_flags.length) {
+    data.red_flags.forEach((flag) => lines.push("- " + flag));
+  } else {
+    lines.push("- None detected by current heuristics");
+  }
+
+  lines.push("");
+  lines.push("Safe Actions:");
+  if (data.safe_actions && data.safe_actions.length) {
+    data.safe_actions.forEach((action) => lines.push("- " + action));
+  }
+
+  lines.push("");
+  lines.push("Summary:");
+  lines.push(data.summary || "");
+
+  return lines.join("\\n");
+}
+
+document.getElementById("aria-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const payload = {
+    project_name: document.getElementById("project_name").value.trim(),
+    official_url: document.getElementById("official_url").value.trim(),
+    description: document.getElementById("description").value.trim(),
+    required_tasks: splitList(document.getElementById("required_tasks").value),
+    chain: document.getElementById("chain").value.trim(),
+    token_contract: document.getElementById("token_contract").value.trim(),
+    social_links: splitList(document.getElementById("social_links").value)
+  };
+
+  const output = document.getElementById("result");
+  output.textContent = "Analyzing...";
+
+  try {
+    const response = await fetch("/score-airdrop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    output.textContent = renderResult(data);
+  } catch (error) {
+    output.textContent = "Request failed: " + error.message;
+  }
+});
+</script>
+</body>
+</html>`;
 
 const OPENAPI_SPEC = {
   openapi: "3.0.1",
@@ -363,6 +510,17 @@ const OPENAPI_SPEC = {
     }
   ],
   paths: {
+    "/": {
+      get: {
+        summary: "Landing page",
+        responses: {
+          "200": {
+            description: "Public landing page",
+            content: { "text/html": { schema: { type: "string" } } }
+          }
+        }
+      }
+    },
     "/health": {
       get: {
         summary: "Health check",
@@ -391,11 +549,18 @@ const OPENAPI_SPEC = {
         responses: {
           "200": {
             description: "Demo analysis result",
-            content: {
-              "application/json": {
-                schema: { type: "object" }
-              }
-            }
+            content: { "application/json": { schema: { type: "object" } } }
+          }
+        }
+      }
+    },
+    "/try": {
+      get: {
+        summary: "Browser form for custom scoring",
+        responses: {
+          "200": {
+            description: "Interactive HTML try page",
+            content: { "text/html": { schema: { type: "string" } } }
           }
         }
       }
@@ -406,11 +571,7 @@ const OPENAPI_SPEC = {
         responses: {
           "200": {
             description: "Documentation page",
-            content: {
-              "text/html": {
-                schema: { type: "string" }
-              }
-            }
+            content: { "text/html": { schema: { type: "string" } } }
           }
         }
       }
@@ -421,11 +582,7 @@ const OPENAPI_SPEC = {
         responses: {
           "200": {
             description: "Test pack results",
-            content: {
-              "application/json": {
-                schema: { type: "object" }
-              }
-            }
+            content: { "application/json": { schema: { type: "object" } } }
           }
         }
       }
@@ -436,11 +593,7 @@ const OPENAPI_SPEC = {
         responses: {
           "200": {
             description: "OpenAPI JSON document",
-            content: {
-              "application/json": {
-                schema: { type: "object" }
-              }
-            }
+            content: { "application/json": { schema: { type: "object" } } }
           }
         }
       }
@@ -460,16 +613,10 @@ const OPENAPI_SPEC = {
                   project_name: { type: "string" },
                   official_url: { type: "string" },
                   description: { type: "string" },
-                  required_tasks: {
-                    type: "array",
-                    items: { type: "string" }
-                  },
+                  required_tasks: { type: "array", items: { type: "string" } },
                   chain: { type: "string" },
                   token_contract: { type: "string" },
-                  social_links: {
-                    type: "array",
-                    items: { type: "string" }
-                  }
+                  social_links: { type: "array", items: { type: "string" } }
                 }
               }
             }
@@ -486,14 +633,8 @@ const OPENAPI_SPEC = {
                     risk_score: { type: "number" },
                     risk_level: { type: "string" },
                     verdict: { type: "string" },
-                    red_flags: {
-                      type: "array",
-                      items: { type: "string" }
-                    },
-                    safe_actions: {
-                      type: "array",
-                      items: { type: "string" }
-                    },
+                    red_flags: { type: "array", items: { type: "string" } },
+                    safe_actions: { type: "array", items: { type: "string" } },
                     summary: { type: "string" }
                   }
                 }
@@ -543,6 +684,13 @@ async function handleRequest(request) {
     }), {
       status: 200,
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+    });
+  }
+
+  if (method === "GET" && url.pathname === "/try") {
+    return new Response(TRY_HTML, {
+      status: 200,
+      headers: { ...CORS_HEADERS, "Content-Type": "text/html; charset=utf-8" }
     });
   }
 
