@@ -1,0 +1,28 @@
+{
+  "name": "nexus-x-aria",
+  "version": "0.1.6",
+  "description": "Transparent airdrop risk scoring API for Web3 projects.",
+  "type": "module",
+  "private": false,
+  "scripts": {
+    "check:version": "grep 'const VERSION = \"0.1.5\";' worker.js",
+    "check:testcases": "grep 'id: \"TC' worker.js | wc -l",
+    "check:openapi": "grep 'openapi: \"3.0.1\"' worker.js",
+    "check": "npm run check:version && npm run check:openapi && npm run check:testcases"
+  },
+  "keywords": [
+    "airdrop",
+    "web3",
+    "crypto-security",
+    "phishing-detection",
+    "risk-scoring",
+    "cloudflare-workers",
+    "serverless",
+    "openapi",
+    "javascript",
+    "security-tools",
+    "heuristics"
+  ],
+  "author": "Muhammad Badarul Syamsy",
+  "license": "MIT"
+}
