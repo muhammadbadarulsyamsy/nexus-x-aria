@@ -1,11 +1,11 @@
 {
   "name": "nexus-x-aria",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Transparent airdrop risk scoring API for Web3 projects.",
   "type": "module",
   "private": false,
   "scripts": {
-    "check:version": "grep 'const VERSION = \"0.1.5\";' worker.js",
+    "check:version": "grep 'const VERSION = \"0.1.8\";' worker.js",
     "check:testcases": "grep 'id: \"TC' worker.js | wc -l",
     "check:openapi": "grep 'openapi: \"3.0.1\"' worker.js",
     "check": "npm run check:version && npm run check:openapi && npm run check:testcases"
