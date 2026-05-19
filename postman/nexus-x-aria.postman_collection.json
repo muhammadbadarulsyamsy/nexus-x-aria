@@ -1,0 +1,194 @@
+{
+  "info": {
+    "_postman_id": "7dfc5fcc-925b-4259-97ff-870e9a790272",
+    "name": "NEXUS-X ARIA — Airdrop Risk Intelligence API",
+    "description": "Safe local Postman collection for NEXUS-X ARIA v0.1.9.\n\nThis collection is for educational and informational testing only. ARIA provides heuristic risk analysis and does not guarantee safety. Never enter seed phrases, private keys, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials.\n\nBase URL is stored as the collection variable `base_url`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Status",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check service status and runtime version."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documentation",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": []
+            },
+            "description": "Landing page."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /docs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/docs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "docs"
+              ]
+            },
+            "description": "HTML documentation."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /examples",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/examples",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "examples"
+              ]
+            },
+            "description": "Educational examples and false-positive notes."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /openapi.json",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/openapi.json",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            },
+            "description": "OpenAPI 3.0.1 specification."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Demo and Testing",
+      "item": [
+        {
+          "name": "GET /demo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/demo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "demo"
+              ]
+            },
+            "description": "Built-in demo analysis."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /test-pack",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/test-pack",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "test-pack"
+              ]
+            },
+            "description": "Internal test pack. Expected v0.1.9 validation: 20 tests, passed:false 0."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Scoring",
+      "item": [
+        {
+          "name": "POST /score-airdrop",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/score-airdrop",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "score-airdrop"
+              ]
+            },
+            "description": "Main airdrop risk scoring endpoint. Uses safe fake sample data only.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_name\": \"Example Airdrop\",\n  \"official_url\": \"https://example-airdrop.com\",\n  \"description\": \"Claim free tokens by connecting your wallet and signing a message.\",\n  \"required_tasks\": [\n    \"connect wallet\",\n    \"sign message\"\n  ],\n  \"chain\": \"Base\",\n  \"token_contract\": \"\",\n  \"social_links\": [\n    \"https://twitter.com/example\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev",
+      "type": "string"
+    }
+  ]
+}
