@@ -1,0 +1,21 @@
+{
+  "name": "NEXUS-X ARIA Passive Listing Kit v0.1",
+  "type": "docs-only patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "cloudflare_deploy_required": false,
+  "github_release_required": false,
+  "automatic_submission": false,
+  "files": [
+    "docs/passive-listing-kit-v0.1.md",
+    "docs/listing-copy-short.md",
+    "docs/listing-copy-long.md",
+    "docs/directory-submission-draft.md",
+    "docs/platform-review-checklist-v0.1.md",
+    "docs/no-go-platforms-v0.1.md",
+    "docs/passive-publication-plan.md",
+    "passive-listing-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add passive listing kit v0.1",
+  "next_step_after_commit": "Create Memory Database v0.5, then stop or review listing documents before publishing anything."
+}
