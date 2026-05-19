@@ -1,0 +1,20 @@
+{
+  "name": "NEXUS-X ARIA v0.2.0 Design Docs",
+  "type": "docs-only design patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "cloudflare_deploy_required": false,
+  "github_release_required": false,
+  "version_target": "0.2.0",
+  "theme": "Explainable Scoring",
+  "files": [
+    "docs/explainable-scoring-v0.2.0.md",
+    "docs/v0.2.0-response-schema.md",
+    "docs/v0.2.0-implementation-plan.md",
+    "docs/v0.2.0-test-plan.md",
+    "docs/v0.2.0-risk-notes.md",
+    "v0.2.0-design-manifest.json"
+  ],
+  "recommended_commit_message": "Add v0.2.0 explainable scoring design docs",
+  "next_step_after_commit": "Review design docs, create Memory Database v1.0-design, then decide whether to build runtime v0.2.0."
+}
