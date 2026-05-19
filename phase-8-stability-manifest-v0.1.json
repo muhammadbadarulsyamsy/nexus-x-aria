@@ -1,0 +1,21 @@
+{
+  "name": "NEXUS-X ARIA Phase 8 Stability & Maintenance Plan v0.1",
+  "type": "docs-only stability patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "files": [
+    "docs/stability-maintenance-plan-v0.1.md",
+    "docs/regression-checklist-v0.2.x.md",
+    "docs/manual-monitoring-checklist.md",
+    "docs/incident-response-lite.md",
+    "docs/v0.2.1-release-gate.md",
+    "docs/append-only-memory-rule.md",
+    "phase-8-stability-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add Phase 8 stability maintenance docs",
+  "next_step_after_commit": "Update PROJECT_MEMORY_DATABASE.txt append-only after user confirms commit/push."
+}
