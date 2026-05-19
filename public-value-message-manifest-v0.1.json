@@ -1,0 +1,19 @@
+{
+  "name": "NEXUS-X ARIA Public Value Message Polish v0.1",
+  "type": "docs-only positioning patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "purpose": "Clarify ARIA's public product message before manual publication or distribution.",
+  "files": [
+    "docs/public-value-message-v0.1.md",
+    "docs/aria-positioning-v0.1.md",
+    "docs/public-copy-options-v0.1.md",
+    "docs/public-message-safety-rules-v0.1.md",
+    "public-value-message-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add public value message polish"
+}
