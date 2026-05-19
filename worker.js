@@ -670,7 +670,7 @@ const OPENAPI_SPEC = {
   "openapi": "3.0.1",
   "info": {
     "title": "NEXUS-X ARIA",
-    "version": "0.1.8",
+    "version": VERSION,
     "description": "Transparent airdrop risk scoring API for Web3 projects."
   },
   "servers": [
