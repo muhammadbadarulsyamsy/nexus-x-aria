@@ -1,0 +1,21 @@
+{
+  "name": "NEXUS-X ARIA Manual Publication Test Plan v0.1",
+  "type": "docs-only publication validation plan",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "billing_required": false,
+  "purpose": "Plan a free manual publication test to collect interest signals before monetization.",
+  "files": [
+    "docs/manual-publication-test-plan-v0.1.md",
+    "docs/free-distribution-channel-map-v0.1.md",
+    "docs/interest-signal-metrics-v0.1.md",
+    "docs/publication-safety-and-stop-rules-v0.1.md",
+    "docs/publication-review-log-template-v0.1.md",
+    "manual-publication-test-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add manual publication test plan"
+}
