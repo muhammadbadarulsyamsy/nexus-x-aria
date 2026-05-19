@@ -1,0 +1,20 @@
+{
+  "name": "NEXUS-X ARIA Phase 8.3 v0.2.1 Ideas Parking Lot v0.1",
+  "type": "docs-only planning patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "memory_database_rule": "PROJECT_MEMORY_DATABASE.txt append-only after phase validation",
+  "files": [
+    "docs/v0.2.1-ideas-parking-lot-v0.1.md",
+    "docs/v0.2.1-idea-evaluation-rubric-v0.1.md",
+    "docs/v0.2.1-no-go-ideas-v0.1.md",
+    "docs/v0.2.1-safe-candidates-v0.1.md",
+    "docs/v0.2.1-parking-lot-review-checklist-v0.1.md",
+    "phase-8.3-v0.2.1-ideas-parking-lot-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add Phase 8.3 v0.2.1 ideas parking lot"
+}
