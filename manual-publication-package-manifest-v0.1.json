@@ -1,0 +1,21 @@
+{
+  "name": "NEXUS-X ARIA Manual Publication Package v0.1",
+  "type": "docs-only publication package",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "billing_required": false,
+  "purpose": "Prepare one safe public post package for manual publication and interest-signal testing.",
+  "files": [
+    "docs/manual-publication-package-v0.1.md",
+    "docs/safe-public-article-draft-v0.1.md",
+    "docs/short-public-post-copy-v0.1.md",
+    "docs/pre-publish-link-checklist-v0.1.md",
+    "docs/publication-preflight-checklist-v0.1.md",
+    "manual-publication-package-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add manual publication package"
+}
