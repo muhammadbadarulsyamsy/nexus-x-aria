@@ -1,823 +1,978 @@
-// NEXUS-X ARIA v0.1.9 – Cloudflare Workers single-file
-// Scoring improvement release: tiered domain risk, broader scam phrase detection,
-// Indonesian scam phrases, approval-warning context handling, expanded test pack.
+const VERSION = "0.2.0";
+const SERVICE = "nexus-x-aria";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type"
-};
+const CONFIDENCE_NOTE =
+  "This result is based on heuristic text and metadata analysis only. It may contain false positives or false negatives.";
 
-const VERSION = "0.1.9";
 const KNOWN_CHAINS = [
   "ethereum",
+  "base",
+  "optimism",
   "arbitrum",
   "polygon",
-  "optimism",
-  "base",
-  "binance smart chain",
+  "bnb",
   "bsc",
   "solana",
-  "aptos",
-  "sui",
-  "scroll",
   "avalanche",
-  "sepolia",
   "zksync",
+  "zk sync",
   "linea",
+  "scroll",
+  "starknet",
   "blast",
   "mantle",
-  "starknet",
   "near",
-  "ton"
+  "aptos",
+  "sui"
 ];
-const DOMAIN_KEYWORDS_HIGH = [
-  "login",
-  "verify",
-  "wallet",
-  "claimfree",
-  "claim-wallet",
-  "wallet-verify",
-  "connect-wallet",
-  "restore",
-  "rectify"
-];
-const DOMAIN_KEYWORDS_MEDIUM = [
-  "bonus",
-  "giveaway",
-  "free",
-  "claim",
-  "reward"
-];
-const DOMAIN_KEYWORDS_LOW = [
-  "airdrop"
-];
-const RECOVERY_SECRET_PHRASES = [
-  "seed phrase",
-  "private key",
-  "recovery phrase",
-  "secret phrase",
-  "mnemonic",
-  "restore wallet",
-  "import wallet",
-  "masukkan seed",
-  "masukkan private key",
-  "frasa pemulihan",
-  "kunci pribadi",
-  "kata sandi dompet"
-];
-const WALLET_CONNECTION_PHRASES = [
-  "connect wallet",
-  "connect your wallet",
-  "link wallet",
-  "wallet connect",
-  "hubungkan dompet",
-  "sambungkan dompet"
-];
-const WALLET_VERIFICATION_PHRASES = [
-  "verify wallet",
-  "validate wallet",
-  "wallet verification",
-  "sync wallet",
-  "rectify wallet",
-  "verifikasi dompet",
-  "validasi dompet",
-  "sinkronkan dompet"
-];
-const SIGNING_PHRASES = [
-  "sign message",
-  "sign transaction",
-  "sign a message",
-  "sign to claim",
-  "tanda tangani pesan",
-  "tanda tangan transaksi"
-];
-const RISKY_APPROVAL_PHRASES = [
-  "approve unlimited",
-  "unlimited approval",
-  "approve spending",
-  "permit spending",
-  "approve token spending",
-  "set approval for all",
-  "approve unlimited token spending"
-];
-const APPROVAL_WARNING_PHRASES = [
-  "do not approve",
-  "don't approve",
-  "avoid approval",
-  "never approve",
-  "jangan approve",
-  "jangan setujui",
-  "hindari approval"
-];
-const PROMO_KEYWORDS = [
-  "guaranteed",
-  "urgent",
-  "free tokens",
-  "limited time",
-  "100% safe",
-  "claim now",
-  "act now",
-  "exclusive reward",
-  "guaranteed reward",
-  "gratis token",
-  "klaim sekarang",
-  "waktu terbatas",
-  "aman 100%",
-  "hadiah eksklusif"
+
+const DEFAULT_SAFE_ACTIONS = [
+  "Verify official links through multiple credible sources.",
+  "Use a burner wallet for airdrop testing.",
+  "Read every wallet message before signing.",
+  "Avoid unlimited token approvals unless you fully understand the risk.",
+  "Never share private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials."
 ];
 
 const SAMPLE_INPUT = {
-  "project_name": "Demo Airdrop",
-  "official_url": "https://demo-airdrop.com",
-  "description": "Claim free tokens by connecting your wallet and signing a message.",
-  "required_tasks": [
-    "connect wallet",
-    "join Discord",
-    "sign message"
-  ],
-  "chain": "Base",
-  "token_contract": "",
-  "social_links": [
-    "https://twitter.com/demo",
-    "https://discord.gg/demo"
-  ]
+  project_name: "Example Airdrop",
+  official_url: "https://example-airdrop.com",
+  description: "Claim free tokens by connecting your wallet and signing a message.",
+  required_tasks: ["connect wallet", "sign message"],
+  chain: "Base",
+  token_contract: "",
+  social_links: ["https://twitter.com/example"]
 };
-const TEST_CASES = [
-  {
-    "id": "TC01",
-    "name": "Low risk – Basic",
-    "input": {
-      "project_name": "Legit Airdrop",
-      "official_url": "https://legitproject.com",
-      "description": "Complete simple social tasks to earn loyalty points.",
-      "required_tasks": [
-        "follow Twitter",
-        "join Discord"
-      ],
-      "chain": "Ethereum",
-      "token_contract": "0x1234",
-      "social_links": [
-        "https://twitter.com/legit",
-        "https://discord.gg/legit"
-      ]
-    },
-    "expected_score_min": 0,
-    "expected_score_max": 10,
-    "expected_level": "low",
-    "expected_flags": []
-  },
-  {
-    "id": "TC02",
-    "name": "Medium risk – Connect wallet & non-HTTPS",
-    "input": {
-      "project_name": "Wallet Connect Airdrop",
-      "official_url": "http://walletairdrop.com",
-      "description": "Connect your wallet to qualify.",
-      "required_tasks": [
-        "connect wallet"
-      ],
-      "chain": "Arbitrum",
-      "token_contract": "0xABC",
-      "social_links": [
-        "https://twitter.com/airdrop"
-      ]
-    },
-    "expected_score_min": 50,
-    "expected_score_max": 60,
-    "expected_level": "medium",
-    "expected_flags": [
-      "Official URL contains high-risk wallet or login keyword",
-      "Official URL not HTTPS",
-      "Requires wallet connection"
-    ]
-  },
-  {
-    "id": "TC03",
-    "name": "High risk – Sign message & missing contract",
-    "input": {
-      "project_name": "Sign Message Airdrop",
-      "official_url": "http://free-airdrop.com",
-      "description": "Sign a message to prove eligibility.",
-      "required_tasks": [
-        "sign message"
-      ],
-      "chain": "UnknownChain",
-      "token_contract": "",
-      "social_links": [
-        "https://twitter.com/freeairdrop"
-      ]
-    },
-    "expected_score_min": 65,
-    "expected_score_max": 75,
-    "expected_level": "high",
-    "expected_flags": [
-      "Official URL contains promotional claim keyword",
-      "Official URL not HTTPS",
-      "Requires signing a message or transaction",
-      "No token contract provided",
-      "Blockchain chain is not widely recognized"
-    ]
-  },
-  {
-    "id": "TC04",
-    "name": "Critical risk – Seed phrase & approvals",
-    "input": {
-      "project_name": "Phishing Airdrop",
-      "official_url": "https://scamlogin-airdrop.com",
-      "description": "Enter your seed phrase and approve unlimited token spending to claim.",
-      "required_tasks": [
-        "connect wallet",
-        "sign message"
-      ],
-      "chain": "Ethereum",
-      "token_contract": "",
-      "social_links": []
-    },
-    "expected_score_min": 95,
-    "expected_score_max": 100,
-    "expected_level": "critical",
-    "expected_flags": [
-      "Official URL contains high-risk wallet or login keyword",
-      "Description asks for wallet recovery secrets",
-      "Requires wallet connection",
-      "Requires signing a message or transaction",
-      "Mentions risky token approvals or spending permissions",
-      "No token contract provided",
-      "No social links provided"
-    ]
-  },
-  {
-    "id": "TC05",
-    "name": "Non-HTTPS only",
-    "input": {
-      "project_name": "HTTP Airdrop",
-      "official_url": "http://project.com",
-      "description": "Complete social tasks.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Base",
-      "token_contract": "0xDEF",
-      "social_links": [
-        "https://twitter.com/project"
-      ]
-    },
-    "expected_score_min": 5,
-    "expected_score_max": 15,
-    "expected_level": "low",
-    "expected_flags": [
-      "Official URL not HTTPS"
-    ]
-  },
-  {
-    "id": "TC06",
-    "name": "Missing official_url",
-    "input": {
-      "project_name": "No URL Airdrop",
-      "official_url": "",
-      "description": "Nothing suspicious here.",
-      "required_tasks": [
-        "join Discord"
-      ],
-      "chain": "Optimism",
-      "token_contract": "0x123",
-      "social_links": [
-        "https://twitter.com/nourl"
-      ]
-    },
-    "expected_score_min": 5,
-    "expected_score_max": 15,
-    "expected_level": "low",
-    "expected_flags": [
-      "Official URL missing"
-    ]
-  },
-  {
-    "id": "TC07",
-    "name": "Missing social links",
-    "input": {
-      "project_name": "No Social Links",
-      "official_url": "https://valid.com",
-      "description": "Safe description.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Ethereum",
-      "token_contract": "0x987",
-      "social_links": []
-    },
-    "expected_score_min": 5,
-    "expected_score_max": 15,
-    "expected_level": "low",
-    "expected_flags": [
-      "No social links provided"
-    ]
-  },
-  {
-    "id": "TC08",
-    "name": "Unknown chain",
-    "input": {
-      "project_name": "Unknown Chain Drop",
-      "official_url": "https://site.com",
-      "description": "Safe.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Klaytn",
-      "token_contract": "0xABC",
-      "social_links": [
-        "https://twitter.com/site"
-      ]
-    },
-    "expected_score_min": 0,
-    "expected_score_max": 10,
-    "expected_level": "low",
-    "expected_flags": [
-      "Blockchain chain is not widely recognized"
-    ]
-  },
-  {
-    "id": "TC09",
-    "name": "Missing token contract",
-    "input": {
-      "project_name": "No Contract",
-      "official_url": "https://site.com",
-      "description": "Safe.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Polygon",
-      "token_contract": "",
-      "social_links": [
-        "https://twitter.com/site"
-      ]
-    },
-    "expected_score_min": 10,
-    "expected_score_max": 20,
-    "expected_level": "low",
-    "expected_flags": [
-      "No token contract provided"
-    ]
-  },
-  {
-    "id": "TC10",
-    "name": "Promotional language only",
-    "input": {
-      "project_name": "Promo Airdrop",
-      "official_url": "https://promo.com",
-      "description": "Get free tokens now! Limited time offer.",
-      "required_tasks": [
-        "join Discord"
-      ],
-      "chain": "Base",
-      "token_contract": "0x1111",
-      "social_links": [
-        "https://twitter.com/promo"
-      ]
-    },
-    "expected_score_min": 15,
-    "expected_score_max": 25,
-    "expected_level": "low",
-    "expected_flags": [
-      "Description contains promotional or urgency language"
-    ]
-  },
-  {
-    "id": "TC11",
-    "name": "Risky approvals",
-    "input": {
-      "project_name": "Approval Airdrop",
-      "official_url": "https://approval.com",
-      "description": "Approve unlimited token spending to claim rewards.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Arbitrum",
-      "token_contract": "0x222",
-      "social_links": [
-        "https://twitter.com/approval"
-      ]
-    },
-    "expected_score_min": 20,
-    "expected_score_max": 30,
-    "expected_level": "low",
-    "expected_flags": [
-      "Mentions risky token approvals or spending permissions"
-    ]
-  },
-  {
-    "id": "TC12",
-    "name": "Legit airdrop domain only",
-    "input": {
-      "project_name": "Legit Airdrop Domain",
-      "official_url": "https://project-airdrop.com",
-      "description": "Complete simple community tasks for eligibility.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Base",
-      "token_contract": "0x333",
-      "social_links": [
-        "https://twitter.com/project"
-      ]
-    },
-    "expected_score_min": 0,
-    "expected_score_max": 10,
-    "expected_level": "low",
-    "expected_flags": [
-      "Official URL contains airdrop keyword"
-    ]
-  },
-  {
-    "id": "TC13",
-    "name": "High-risk wallet verification domain",
-    "input": {
-      "project_name": "Wallet Verify Claim",
-      "official_url": "https://wallet-verify-claim.com",
-      "description": "Verify wallet to access your reward allocation.",
-      "required_tasks": [
-        "join Telegram"
-      ],
-      "chain": "Base",
-      "token_contract": "0x444",
-      "social_links": [
-        "https://twitter.com/verify"
-      ]
-    },
-    "expected_score_min": 45,
-    "expected_score_max": 55,
-    "expected_level": "medium",
-    "expected_flags": [
-      "Official URL contains high-risk wallet or login keyword",
-      "Mentions wallet verification or synchronization"
-    ]
-  },
-  {
-    "id": "TC14",
-    "name": "Approval warning educational text",
-    "input": {
-      "project_name": "Education Page",
-      "official_url": "https://education.com",
-      "description": "Do not approve unlimited spending. Educational warning only.",
-      "required_tasks": [
-        "read guide"
-      ],
-      "chain": "Ethereum",
-      "token_contract": "0x555",
-      "social_links": [
-        "https://twitter.com/education"
-      ]
-    },
-    "expected_score_min": 0,
-    "expected_score_max": 5,
-    "expected_level": "low",
-    "expected_flags": []
-  },
-  {
-    "id": "TC15",
-    "name": "Indonesian seed phrase scam",
-    "input": {
-      "project_name": "Klaim Token",
-      "official_url": "https://valid.com",
-      "description": "Masukkan seed phrase untuk klaim sekarang hadiah eksklusif.",
-      "required_tasks": [
-        "hubungkan dompet"
-      ],
-      "chain": "Base",
-      "token_contract": "",
-      "social_links": []
-    },
-    "expected_score_min": 95,
-    "expected_score_max": 100,
-    "expected_level": "critical",
-    "expected_flags": [
-      "Description asks for wallet recovery secrets",
-      "Requires wallet connection",
-      "Description contains promotional or urgency language",
-      "No token contract provided",
-      "No social links provided"
-    ]
-  },
-  {
-    "id": "TC16",
-    "name": "Indonesian wallet verification scam",
-    "input": {
-      "project_name": "Verifikasi Hadiah",
-      "official_url": "https://verifikasi-wallet.com",
-      "description": "Verifikasi dompet untuk klaim sekarang hadiah eksklusif.",
-      "required_tasks": [
-        "join Telegram"
-      ],
-      "chain": "Base",
-      "token_contract": "0x666",
-      "social_links": [
-        "https://twitter.com/verifikasi"
-      ]
-    },
-    "expected_score_min": 65,
-    "expected_score_max": 75,
-    "expected_level": "high",
-    "expected_flags": [
-      "Official URL contains high-risk wallet or login keyword",
-      "Mentions wallet verification or synchronization",
-      "Description contains promotional or urgency language"
-    ]
-  },
-  {
-    "id": "TC17",
-    "name": "Claim now urgency phrase",
-    "input": {
-      "project_name": "Urgency Airdrop",
-      "official_url": "https://urgency.com",
-      "description": "Claim now. Limited time reward.",
-      "required_tasks": [
-        "join Discord"
-      ],
-      "chain": "Base",
-      "token_contract": "0x777",
-      "social_links": [
-        "https://twitter.com/urgency"
-      ]
-    },
-    "expected_score_min": 15,
-    "expected_score_max": 25,
-    "expected_level": "low",
-    "expected_flags": [
-      "Description contains promotional or urgency language"
-    ]
-  },
-  {
-    "id": "TC18",
-    "name": "Restore wallet phishing phrase",
-    "input": {
-      "project_name": "Restore Wallet Claim",
-      "official_url": "https://restore-wallet.com",
-      "description": "Restore wallet using your recovery phrase to claim.",
-      "required_tasks": [
-        "connect wallet"
-      ],
-      "chain": "Ethereum",
-      "token_contract": "",
-      "social_links": [
-        "https://twitter.com/restore"
-      ]
-    },
-    "expected_score_min": 95,
-    "expected_score_max": 100,
-    "expected_level": "critical",
-    "expected_flags": [
-      "Official URL contains high-risk wallet or login keyword",
-      "Description asks for wallet recovery secrets",
-      "Requires wallet connection",
-      "No token contract provided"
-    ]
-  },
-  {
-    "id": "TC19",
-    "name": "New known chain zkSync",
-    "input": {
-      "project_name": "zkSync Airdrop",
-      "official_url": "https://zksyncproject.com",
-      "description": "Complete simple social tasks.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "zkSync",
-      "token_contract": "0x888",
-      "social_links": [
-        "https://twitter.com/zksyncproject"
-      ]
-    },
-    "expected_score_min": 0,
-    "expected_score_max": 5,
-    "expected_level": "low",
-    "expected_flags": []
-  },
-  {
-    "id": "TC20",
-    "name": "Invalid URL",
-    "input": {
-      "project_name": "Invalid URL Drop",
-      "official_url": "not-a-url",
-      "description": "Complete social tasks.",
-      "required_tasks": [
-        "follow Twitter"
-      ],
-      "chain": "Base",
-      "token_contract": "0x999",
-      "social_links": [
-        "https://twitter.com/invalid"
-      ]
-    },
-    "expected_score_min": 25,
-    "expected_score_max": 35,
-    "expected_level": "low",
-    "expected_flags": [
-      "Official URL not HTTPS",
-      "Official URL is invalid or suspicious"
-    ]
-  }
-];
-const LANDING_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.4;text-align:center}h1{color:#2c3e50;margin-bottom:.5em}h2{color:#34495e;margin-top:0}p{max-width:720px;margin:1rem auto}.links a{display:inline-block;margin:.5rem;padding:.55rem 1rem;background:#3498db;color:#fff;text-decoration:none;border-radius:4px}.links a:hover{background:#2980b9}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body><h1>NEXUS-X ARIA</h1><h2>Airdrop Risk Intelligence API</h2><p>Version ${VERSION} – transparent airdrop risk scoring for Web3 projects with improved heuristic detection and expanded examples.</p><div class="links"><a href="/try">Try It</a><a href="/demo">Demo</a><a href="/examples">Examples</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a><a href="/openapi.json">OpenAPI Spec</a><a href="/health">Health</a></div><p>Endpoint <code>/score-airdrop</code> is available for technical integration via POST JSON.</p><footer>Disclaimer: analysis does not guarantee safety. Always do your own research. Never enter seed phrases, private keys, passwords, OTPs, or wallet credentials.</footer></body></html>`;
-const DOCS_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Documentation</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:850px}h1,h2{color:#2c3e50}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:4px}code{font-family:monospace}ul{padding-left:1.2rem}a{color:#2563eb}</style></head><body><h1>NEXUS-X ARIA</h1><p><strong>Version: ${VERSION}</strong></p><p><strong>Airdrop Risk Intelligence API</strong> – API ini menganalisis informasi airdrop/proyek Web3 dan mengembalikan skor risiko, level risiko, verdict, red flag, rekomendasi tindakan aman, serta ringkasan.</p><h2>Endpoint</h2><ul><li><strong>GET /</strong> – Landing.</li><li><strong>GET /health</strong> – Status dan versi.</li><li><strong>GET /demo</strong> – Demo internal.</li><li><strong>GET /try</strong> – Form browser untuk input custom.</li><li><strong>GET /examples</strong> – Contoh kasus low, medium, high, critical, false-positive fixes, dan scam Bahasa Indonesia.</li><li><strong>GET /docs</strong> – Dokumentasi HTML.</li><li><strong>GET /test-pack</strong> – Paket pengujian heuristik.</li><li><strong>GET /openapi.json</strong> – OpenAPI JSON.</li><li><strong>POST /score-airdrop</strong> – Endpoint scoring utama.</li></ul><h2>v0.1.9 Expanded Examples</h2><ul><li>Menambahkan halaman <a href="/examples">/examples</a>.</li><li>Menjelaskan contoh low, medium, high, dan critical risk.</li><li>Menjelaskan false-positive yang sudah diperbaiki, termasuk zkSync dan approval warning.</li><li>Menambahkan contoh scam Bahasa Indonesia untuk edukasi.</li><li>Scoring engine tetap sama seperti v0.1.8 hotfix; test pack tetap 20/20.</li></ul><h2>Try Page</h2><p>Coba analisis custom langsung dari browser: <a href="/try">/try</a></p><h2>OpenAPI</h2><p>Machine-readable OpenAPI specification tersedia di <code>/openapi.json</code>.</p><h2>Batasan MVP</h2><ul><li>Analisis berbasis heuristik sederhana dan dapat menghasilkan false positive/negative.</li><li>Tidak ada integrasi data eksternal atau basis data.</li><li>Semua endpoint publik tanpa autentikasi atau rate limit bawaan.</li></ul><h2>Disclaimer Keamanan</h2><p>Analisis ini bukan nasihat keuangan dan bukan jaminan keamanan. Jangan pernah membagikan private key, seed phrase, password, OTP, atau data rahasia lainnya.</p></body></html>`;
-const EXAMPLES_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Examples</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.55;max-width:950px}h1,h2,h3{color:#2c3e50}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:6px}code{font-family:monospace}.case{border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1rem 0}.low{border-left:6px solid #2ecc71}.medium{border-left:6px solid #f1c40f}.high{border-left:6px solid #e67e22}.critical{border-left:6px solid #e74c3c}.note{background:#fff3cd;border:1px solid #ffeeba;padding:.8rem;border-radius:6px}.nav a{margin-right:.75rem}</style></head><body><div class="nav"><a href="/">Home</a><a href="/try">Try It</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a></div><h1>NEXUS-X ARIA Examples</h1><p><strong>Version:</strong> ${VERSION}</p><p>Halaman ini menjelaskan contoh interpretasi hasil ARIA. Contoh ini bersifat edukatif, bukan jaminan keamanan.</p><div class="note"><strong>Safety note:</strong> Jangan pernah memasukkan private key, seed phrase, recovery phrase, password, OTP, cookie, API key, atau kredensial wallet.</div><div class="case low"><h2>1. Low Risk Example</h2><p>Contoh airdrop dengan HTTPS, chain dikenal, token contract tersedia, social links tersedia, dan tidak meminta connect wallet/sign message.</p><pre>{
-  "project_name": "Legit Community Rewards",
-  "official_url": "https://legitproject.com",
-  "description": "Complete simple social tasks to earn loyalty points.",
-  "required_tasks": ["follow Twitter", "join Discord"],
-  "chain": "Ethereum",
-  "token_contract": "0x1234",
-  "social_links": ["https://twitter.com/legit"]
-}</pre><p><strong>Interpretasi:</strong> Biasanya low risk karena tidak ada red flag besar.</p></div><div class="case medium"><h2>2. Medium Risk Example</h2><p>Contoh yang meminta wallet connection dan memakai domain/wallet keyword.</p><pre>{
-  "project_name": "Wallet Verify Claim",
-  "official_url": "https://wallet-verify-claim.com",
-  "description": "Verify wallet to access your reward allocation.",
-  "required_tasks": ["join Telegram"],
-  "chain": "Base",
-  "token_contract": "0x444",
-  "social_links": ["https://twitter.com/verify"]
-}</pre><p><strong>Interpretasi:</strong> Medium risk karena ada wallet verification dan domain high-risk keyword.</p></div><div class="case high"><h2>3. High Risk Example</h2><p>Contoh gabungan beberapa sinyal: sign message, domain claim/free, contract kosong, chain tidak dikenal.</p><pre>{
-  "project_name": "Sign Message Airdrop",
-  "official_url": "http://free-airdrop.com",
-  "description": "Sign a message to prove eligibility.",
-  "required_tasks": ["sign message"],
-  "chain": "UnknownChain",
-  "token_contract": "",
-  "social_links": ["https://twitter.com/freeairdrop"]
-}</pre><p><strong>Interpretasi:</strong> Banyak red flag sedang dapat mendorong skor ke high.</p></div><div class="case critical"><h2>4. Critical Risk Example</h2><p>Contoh sangat berbahaya karena meminta seed phrase/recovery secret atau approval berisiko.</p><pre>{
-  "project_name": "Phishing Airdrop",
-  "official_url": "https://scamlogin-airdrop.com",
-  "description": "Enter your seed phrase and approve unlimited token spending to claim.",
-  "required_tasks": ["connect wallet", "sign message"],
-  "chain": "Ethereum",
-  "token_contract": "",
-  "social_links": []
-}</pre><p><strong>Interpretasi:</strong> Critical. Permintaan seed phrase/private key harus dianggap bahaya besar.</p></div><div class="case critical"><h2>5. Indonesian Scam Example</h2><pre>{
-  "project_name": "Klaim Token",
-  "official_url": "https://valid.com",
-  "description": "Masukkan seed phrase untuk klaim sekarang hadiah eksklusif.",
-  "required_tasks": ["hubungkan dompet"],
-  "chain": "Base",
-  "token_contract": "",
-  "social_links": []
-}</pre><p><strong>Interpretasi:</strong> ARIA v0.1.8+ mulai mendeteksi frasa scam Bahasa Indonesia seperti <code>masukkan seed</code>, <code>klaim sekarang</code>, dan <code>hadiah eksklusif</code>.</p></div><div class="case low"><h2>6. False Positive Fixed: zkSync</h2><p>Kasus lama: <code>zksyncproject.com</code> mengandung substring <code>sync</code>, sehingga pernah salah kena high-risk domain flag.</p><p><strong>Perbaikan:</strong> keyword domain umum <code>sync</code> dihapus. Frasa berbahaya <code>sync wallet</code> tetap dideteksi di level teks.</p></div><div class="case low"><h2>7. False Positive Avoided: Approval Warning</h2><p>Kalimat seperti <code>Do not approve unlimited spending</code> adalah peringatan edukatif, bukan instruksi scam.</p><p><strong>Perbaikan:</strong> ARIA mengenali konteks warning seperti <code>do not approve</code>, <code>jangan approve</code>, dan <code>hindari approval</code>.</p></div><h2>Next Step</h2><p>Gunakan <a href="/try">/try</a> untuk mencoba contoh Anda sendiri.</p></body></html>`;
-const TRY_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Try Page</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:900px}h1,h2{color:#2c3e50}label{display:block;margin-top:1rem;font-weight:bold}input,textarea{width:100%;padding:.6rem;margin-top:.25rem;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;font-family:Arial,sans-serif}textarea{min-height:90px}button{margin-top:1rem;padding:.7rem 1.2rem;border:0;border-radius:4px;background:#3498db;color:white;font-weight:bold;cursor:pointer}.warning{background:#fff3cd;border:1px solid #ffeeba;padding:.8rem;border-radius:4px}.result{margin-top:1.5rem;padding:1rem;border-radius:6px;background:#f6f8fa;white-space:pre-wrap}.small{color:#555;font-size:.9rem}.nav a{margin-right:.75rem}</style></head><body><div class="nav"><a href="/">Home</a><a href="/docs">Docs</a><a href="/demo">Demo</a><a href="/test-pack">Test Pack</a></div><h1>NEXUS-X ARIA Try Page</h1><p><strong>Version:</strong> ${VERSION}</p><div class="warning"><strong>Safety warning:</strong> Do not enter private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials. This tool provides heuristic analysis only and does not guarantee safety.</div><form id="aria-form"><label for="project_name">Project Name</label><input id="project_name" value="Example Airdrop" required><label for="official_url">Official URL</label><input id="official_url" value="https://example-airdrop.com"><label for="description">Description</label><textarea id="description" required>Claim free tokens by connecting your wallet and signing a message.</textarea><label for="required_tasks">Required Tasks</label><textarea id="required_tasks" required>connect wallet
-join Discord
-sign message</textarea><p class="small">One task per line, or separate with commas.</p><label for="chain">Chain</label><input id="chain" value="Base"><label for="token_contract">Token Contract</label><input id="token_contract" value=""><label for="social_links">Social Links</label><textarea id="social_links">https://twitter.com/example
-https://discord.gg/example</textarea><p class="small">One link per line, or separate with commas.</p><button type="submit">Analyze Risk</button></form><h2>Result</h2><div id="result" class="result">Submit the form to see a risk analysis.</div><script>function splitList(value){return value.split(/\n|,/).map((item)=>item.trim()).filter(Boolean)}function renderResult(data){if(data.error){return 'Error: '+data.error}const lines=[];lines.push('Risk Score: '+data.risk_score);lines.push('Risk Level: '+data.risk_level);lines.push('Verdict: '+data.verdict);lines.push('');lines.push('Red Flags:');if(data.red_flags&&data.red_flags.length){data.red_flags.forEach((flag)=>lines.push('- '+flag))}else{lines.push('- None detected by current heuristics')}lines.push('');lines.push('Safe Actions:');if(data.safe_actions&&data.safe_actions.length){data.safe_actions.forEach((action)=>lines.push('- '+action))}lines.push('');lines.push('Summary:');lines.push(data.summary||'');return lines.join('\n')}document.getElementById('aria-form').addEventListener('submit',async(event)=>{event.preventDefault();const payload={project_name:document.getElementById('project_name').value.trim(),official_url:document.getElementById('official_url').value.trim(),description:document.getElementById('description').value.trim(),required_tasks:splitList(document.getElementById('required_tasks').value),chain:document.getElementById('chain').value.trim(),token_contract:document.getElementById('token_contract').value.trim(),social_links:splitList(document.getElementById('social_links').value)};const output=document.getElementById('result');output.textContent='Analyzing...';try{const response=await fetch('/score-airdrop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();output.textContent=renderResult(data)}catch(error){output.textContent='Request failed: '+error.message}});</script></body></html>`;
-const OPENAPI_SPEC = {
-  "openapi": "3.0.1",
-  "info": {
-    "title": "NEXUS-X ARIA",
-    "version": VERSION,
-    "description": "Transparent airdrop risk scoring API for Web3 projects."
-  },
-  "servers": [
-    {
-      "url": "https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev"
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-headers": "content-type"
     }
-  ],
-  "paths": {
-    "/": {
-      "get": {
-        "summary": "Landing page"
-      }
+  });
+}
+
+function htmlResponse(html, status = 200) {
+  return new Response(html, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "access-control-allow-origin": "*"
+    }
+  });
+}
+
+function textOf(value) {
+  if (Array.isArray(value)) return value.join(" ");
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function normalizeInput(raw) {
+  const input = raw && typeof raw === "object" ? raw : {};
+  const project_name = textOf(input.project_name).trim();
+  const official_url = textOf(input.official_url).trim();
+  const description = textOf(input.description).trim();
+  const required_tasks = Array.isArray(input.required_tasks)
+    ? input.required_tasks.map((x) => textOf(x).trim()).filter(Boolean)
+    : textOf(input.required_tasks).trim()
+      ? [textOf(input.required_tasks).trim()]
+      : [];
+  const chain = textOf(input.chain).trim();
+  const token_contract = textOf(input.token_contract).trim();
+  const social_links = Array.isArray(input.social_links)
+    ? input.social_links.map((x) => textOf(x).trim()).filter(Boolean)
+    : textOf(input.social_links).trim()
+      ? [textOf(input.social_links).trim()]
+      : [];
+
+  const combinedText = [
+    project_name,
+    official_url,
+    description,
+    required_tasks.join(" "),
+    chain,
+    token_contract,
+    social_links.join(" ")
+  ].join(" ").toLowerCase();
+
+  return {
+    project_name,
+    official_url,
+    description,
+    required_tasks,
+    chain,
+    token_contract,
+    social_links,
+    combinedText
+  };
+}
+
+function containsAny(text, terms) {
+  return terms.some((term) => text.includes(term));
+}
+
+function parseHost(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch (_) {
+    return "";
+  }
+}
+
+function getRiskLevel(score) {
+  if (score >= 75) return "critical";
+  if (score >= 50) return "high";
+  if (score >= 25) return "medium";
+  return "low";
+}
+
+function getVerdict(score) {
+  if (score >= 75) return "avoid";
+  if (score >= 50) return "high_risk";
+  if (score >= 25) return "caution";
+  return "likely_safe";
+}
+
+function buildInputQuality(input) {
+  const missing = [];
+  if (!input.project_name) missing.push("project_name");
+  if (!input.official_url) missing.push("official_url");
+  if (!input.description) missing.push("description");
+  if (!input.required_tasks.length) missing.push("required_tasks");
+  if (!input.chain) missing.push("chain");
+  if (!input.token_contract) missing.push("token_contract");
+  if (!input.social_links.length) missing.push("social_links");
+
+  const notes = missing.map((field) => {
+    if (field === "token_contract") return "The score may be less reliable because token_contract is missing.";
+    if (field === "social_links") return "Missing social links may reduce confidence in project legitimacy.";
+    return `Missing ${field} may reduce analysis quality.`;
+  });
+
+  let level = "complete";
+  if (missing.length >= 4) level = "weak";
+  else if (missing.length >= 2) level = "partial";
+  else if (missing.length === 1) level = "partial";
+
+  return { level, missing_fields: missing, notes };
+}
+
+function scoreAirdrop(rawInput) {
+  const input = normalizeInput(rawInput);
+  const text = input.combinedText;
+  const host = parseHost(input.official_url);
+
+  let riskScore = 0;
+  const redFlags = [];
+  const safeActions = [...DEFAULT_SAFE_ACTIONS];
+  const ruleHits = [];
+  const scoreBreakdown = [];
+  const falsePositiveNotes = [];
+
+  function addSignal(rule_id, category, points, severity, reason, red_flag) {
+    if (!ruleHits.includes(rule_id)) ruleHits.push(rule_id);
+    if (points > 0) {
+      riskScore += points;
+      scoreBreakdown.push({ rule_id, category, points, severity, reason });
+    }
+    if (red_flag && !redFlags.includes(red_flag)) redFlags.push(red_flag);
+  }
+
+  if (!input.project_name) {
+    addSignal(
+      "MISSING_PROJECT_NAME",
+      "input_quality",
+      5,
+      "low",
+      "Project name is missing.",
+      "Project name is missing"
+    );
+  }
+
+  if (!input.official_url) {
+    addSignal(
+      "MISSING_OFFICIAL_URL",
+      "url_security",
+      15,
+      "medium",
+      "Official URL is missing.",
+      "Official URL is missing"
+    );
+  } else if (!input.official_url.toLowerCase().startsWith("https://")) {
+    addSignal(
+      "NON_HTTPS_URL",
+      "url_security",
+      20,
+      "medium",
+      "Official URL does not use HTTPS.",
+      "Official URL does not use HTTPS"
+    );
+  }
+
+  if (host) {
+    if (containsAny(host, ["wallet", "login", "validate", "validation", "secure", "verify"])) {
+      addSignal(
+        "HIGH_RISK_DOMAIN_KEYWORD",
+        "domain_risk",
+        25,
+        "high",
+        "Official URL contains high-risk wallet, login, verify, or security keyword.",
+        "Official URL contains high-risk wallet, login, verify, or security keyword"
+      );
+    }
+
+    if (containsAny(host, ["claim", "reward", "bonus", "gift"])) {
+      addSignal(
+        "MEDIUM_RISK_DOMAIN_KEYWORD",
+        "domain_risk",
+        10,
+        "medium",
+        "Official URL contains promotional claim or reward keyword.",
+        "Official URL contains promotional claim or reward keyword"
+      );
+    }
+
+    if (host.includes("airdrop")) {
+      addSignal(
+        "LOW_RISK_AIRDROP_DOMAIN_KEYWORD",
+        "domain_risk",
+        5,
+        "low",
+        "Official URL contains airdrop keyword.",
+        "Official URL contains airdrop keyword"
+      );
+    }
+
+    if (host.includes("zksync")) {
+      if (!ruleHits.includes("KNOWN_CHAIN_DETECTED")) ruleHits.push("KNOWN_CHAIN_DETECTED");
+      falsePositiveNotes.push(
+        "Known zkSync-related term detected; generic sync substring was not treated as a domain risk by itself."
+      );
+    }
+  }
+
+  if (containsAny(text, ["connect wallet", "connect your wallet", "hubungkan wallet", "hubungkan dompet", "koneksi dompet"])) {
+    addSignal(
+      "WALLET_CONNECT_REQUEST",
+      "wallet_request",
+      20,
+      "medium",
+      "Project asks users to connect a wallet.",
+      "Requires wallet connection"
+    );
+  }
+
+  if (containsAny(text, ["verify wallet", "wallet verification", "verifikasi wallet", "verifikasi dompet"])) {
+    addSignal(
+      "WALLET_VERIFY_REQUEST",
+      "wallet_request",
+      25,
+      "high",
+      "Project asks users to verify a wallet.",
+      "Requests wallet verification"
+    );
+  }
+
+  if (containsAny(text, ["sync wallet", "synchronize wallet", "sinkronkan wallet", "sinkronkan dompet"])) {
+    addSignal(
+      "WALLET_SYNC_REQUEST",
+      "wallet_request",
+      25,
+      "high",
+      "Project asks users to sync a wallet.",
+      "Requests wallet synchronization"
+    );
+  }
+
+  if (containsAny(text, ["sign message", "sign a message", "sign transaction", "signature request", "tanda tangan pesan", "menandatangani pesan"])) {
+    addSignal(
+      "SIGN_MESSAGE_REQUEST",
+      "signing_request",
+      30,
+      "high",
+      "Project asks users to sign a message or transaction.",
+      "Requires signing a message or transaction"
+    );
+  }
+
+  if (containsAny(text, ["seed phrase", "mnemonic", "recovery phrase", "secret recovery phrase", "frasa pemulihan", "masukkan seed"])) {
+    addSignal(
+      "SEED_PHRASE_REQUEST",
+      "secret_request",
+      85,
+      "critical",
+      "Project asks for seed phrase, mnemonic, or recovery phrase.",
+      "Requests seed phrase, mnemonic, or recovery phrase"
+    );
+  }
+
+  if (containsAny(text, ["private key", "kunci privat", "masukkan private key"])) {
+    addSignal(
+      "PRIVATE_KEY_REQUEST",
+      "secret_request",
+      85,
+      "critical",
+      "Project asks for private key.",
+      "Requests private key"
+    );
+  }
+
+  if (containsAny(text, ["recovery secret", "secret phrase"])) {
+    addSignal(
+      "SECRET_RECOVERY_REQUEST",
+      "secret_request",
+      80,
+      "critical",
+      "Project asks for recovery secret phrase.",
+      "Requests wallet recovery secret"
+    );
+  }
+
+  const approvalLanguage = containsAny(text, [
+    "approve unlimited",
+    "unlimited approval",
+    "set approval for all",
+    "approve all tokens",
+    "approve spending",
+    "setujui semua",
+    "approve semua"
+  ]);
+  const educationalApprovalWarning = containsAny(text, [
+    "do not approve",
+    "don't approve",
+    "dont approve",
+    "avoid approval",
+    "avoid unlimited approval",
+    "jangan approve",
+    "jangan setujui",
+    "hindari approval"
+  ]);
+
+  if (approvalLanguage && educationalApprovalWarning) {
+    if (!ruleHits.includes("EDUCATIONAL_APPROVAL_WARNING")) ruleHits.push("EDUCATIONAL_APPROVAL_WARNING");
+    falsePositiveNotes.push(
+      "Educational approval warning detected; approval language was not penalized as risky instruction."
+    );
+  } else if (approvalLanguage) {
+    addSignal(
+      "RISKY_APPROVAL_REQUEST",
+      "approval_risk",
+      35,
+      "high",
+      "Project asks for broad or unlimited token approval.",
+      "Requests broad or unlimited token approval"
+    );
+  }
+
+  if (containsAny(text, ["claim now", "limited time", "urgent", "act fast", "exclusive reward", "hadiah eksklusif", "klaim sekarang", "segera klaim"])) {
+    addSignal(
+      "PROMOTIONAL_URGENCY",
+      "promotional_language",
+      10,
+      "medium",
+      "Project uses urgency or promotional claim language.",
+      "Uses urgency or promotional language"
+    );
+  }
+
+  if (containsAny(text, ["masukkan seed", "masukkan private key", "frasa pemulihan", "verifikasi dompet", "klaim sekarang", "hadiah eksklusif"])) {
+    addSignal(
+      "INDONESIAN_SCAM_PHRASE",
+      "promotional_language",
+      20,
+      "high",
+      "Input contains Indonesian scam-like phrase.",
+      "Contains Indonesian scam-like phrase"
+    );
+  }
+
+  if (!input.token_contract) {
+    addSignal(
+      "MISSING_TOKEN_CONTRACT",
+      "token_metadata",
+      10,
+      "low",
+      "Token contract is missing.",
+      "No token contract provided"
+    );
+  }
+
+  if (!input.social_links.length) {
+    addSignal(
+      "MISSING_SOCIAL_LINKS",
+      "social_proof",
+      10,
+      "low",
+      "Social links are missing.",
+      "No social links provided"
+    );
+  }
+
+  if (!input.chain) {
+    addSignal(
+      "UNKNOWN_CHAIN",
+      "chain_metadata",
+      5,
+      "low",
+      "Chain is missing.",
+      "Chain is missing or unknown"
+    );
+  } else {
+    const chainLower = input.chain.toLowerCase();
+    const known = KNOWN_CHAINS.some((chain) => chainLower.includes(chain));
+    if (known) {
+      if (!ruleHits.includes("KNOWN_CHAIN_DETECTED")) ruleHits.push("KNOWN_CHAIN_DETECTED");
+    } else {
+      addSignal(
+        "UNKNOWN_CHAIN",
+        "chain_metadata",
+        10,
+        "low",
+        "Chain is not in the known chain list.",
+        "Unknown or unsupported chain"
+      );
+    }
+  }
+
+  const inputQuality = buildInputQuality(input);
+  const finalScore = Math.max(0, Math.min(100, riskScore));
+  const riskLevel = getRiskLevel(finalScore);
+
+  return {
+    service: SERVICE,
+    version: VERSION,
+    risk_score: finalScore,
+    risk_level: riskLevel,
+    verdict: getVerdict(finalScore),
+    red_flags: redFlags,
+    safe_actions: safeActions,
+    summary:
+      redFlags.length === 0
+        ? "No major heuristic red flags were detected in the provided input."
+        : `The analysis detected ${redFlags.length} heuristic risk signal(s).`,
+    rule_hits: ruleHits,
+    score_breakdown: scoreBreakdown,
+    input_quality: inputQuality,
+    confidence_note: CONFIDENCE_NOTE,
+    false_positive_notes: falsePositiveNotes
+  };
+}
+
+function scoreMatches(result, min, max, level) {
+  return result.risk_score >= min && result.risk_score <= max && result.risk_level === level;
+}
+
+function hasRules(result, rules) {
+  return rules.every((rule) => result.rule_hits.includes(rule));
+}
+
+function runTestPack() {
+  const tests = [
+    {
+      id: "TC01",
+      name: "Legit low-risk project",
+      input: {
+        project_name: "Legit Community Rewards",
+        official_url: "https://legit.example.com",
+        description: "Community rewards information page with educational safety notes.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/legit"]
+      },
+      check: (r) => scoreMatches(r, 0, 10, "low")
     },
-    "/health": {
-      "get": {
-        "summary": "Health check"
-      }
+    {
+      id: "TC02",
+      name: "Non-HTTPS URL",
+      input: {
+        project_name: "HTTP Claim",
+        official_url: "http://example.com",
+        description: "Simple claim page.",
+        required_tasks: ["read page"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["NON_HTTPS_URL"]) && scoreMatches(r, 20, 40, "medium")
     },
-    "/demo": {
-      "get": {
-        "summary": "Demo risk analysis"
-      }
+    {
+      id: "TC03",
+      name: "Wallet connect request",
+      input: {
+        project_name: "Wallet Claim",
+        official_url: "https://wallet-claim.example.com",
+        description: "Connect wallet to check eligibility.",
+        required_tasks: ["connect wallet"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["WALLET_CONNECT_REQUEST"]) && r.risk_level === "high"
     },
-    "/try": {
-      "get": {
-        "summary": "Browser form for custom scoring"
-      }
+    {
+      id: "TC04",
+      name: "Sign message request",
+      input: {
+        project_name: "Sign Message Airdrop",
+        official_url: "https://example-airdrop.com",
+        description: "Claim free tokens by connecting your wallet and signing a message.",
+        required_tasks: ["connect wallet", "sign message"],
+        chain: "Base",
+        token_contract: "",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["WALLET_CONNECT_REQUEST", "SIGN_MESSAGE_REQUEST"]) && r.risk_level === "high"
     },
-    "/examples": {
-      get: {
-        summary: "Expanded examples",
-        responses: {
-          "200": {
-            description: "Examples page",
-            content: { "text/html": { schema: { type: "string" } } }
+    {
+      id: "TC05",
+      name: "Seed phrase request",
+      input: {
+        project_name: "Seed Claim",
+        official_url: "https://claim.example.com",
+        description: "Enter your seed phrase to claim.",
+        required_tasks: ["seed phrase"],
+        chain: "Base",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["SEED_PHRASE_REQUEST"]) && r.risk_level === "critical"
+    },
+    {
+      id: "TC06",
+      name: "Private key request",
+      input: {
+        project_name: "Private Key Claim",
+        official_url: "https://claim.example.com",
+        description: "Masukkan private key untuk klaim.",
+        required_tasks: ["private key"],
+        chain: "Base",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["PRIVATE_KEY_REQUEST"]) && r.risk_level === "critical"
+    },
+    {
+      id: "TC07",
+      name: "Recovery phrase request",
+      input: {
+        project_name: "Recovery Claim",
+        official_url: "https://claim.example.com",
+        description: "Enter recovery phrase to verify.",
+        required_tasks: ["recovery phrase"],
+        chain: "Base",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["SEED_PHRASE_REQUEST"]) && r.risk_level === "critical"
+    },
+    {
+      id: "TC08",
+      name: "Risky approval request",
+      input: {
+        project_name: "Approval Claim",
+        official_url: "https://claim.example.com",
+        description: "Connect wallet and approve unlimited spending.",
+        required_tasks: ["connect wallet", "approve unlimited spending"],
+        chain: "Base",
+        token_contract: "",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["RISKY_APPROVAL_REQUEST"]) && r.risk_level === "critical"
+    },
+    {
+      id: "TC09",
+      name: "Educational approval warning",
+      input: {
+        project_name: "Safety Education",
+        official_url: "https://safety.example.com",
+        description: "Do not approve unlimited spending. This is an educational warning.",
+        required_tasks: ["read safety guide"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/safety"]
+      },
+      check: (r) => r.false_positive_notes.length > 0 && !r.rule_hits.includes("RISKY_APPROVAL_REQUEST")
+    },
+    {
+      id: "TC10",
+      name: "zkSync false-positive protection",
+      input: {
+        project_name: "zkSync Project",
+        official_url: "https://zksyncproject.com",
+        description: "Educational zkSync ecosystem project.",
+        required_tasks: ["read docs"],
+        chain: "zkSync",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/zksync"]
+      },
+      check: (r) => r.risk_level === "low" && r.false_positive_notes.length > 0
+    },
+    {
+      id: "TC11",
+      name: "Unknown chain",
+      input: {
+        project_name: "Unknown Chain Drop",
+        official_url: "https://unknown.example.com",
+        description: "Airdrop on a new chain.",
+        required_tasks: ["read docs"],
+        chain: "MysteryChain",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["UNKNOWN_CHAIN"]) && r.risk_level === "medium"
+    },
+    {
+      id: "TC12",
+      name: "Missing official URL",
+      input: {
+        project_name: "Missing URL",
+        official_url: "",
+        description: "Project has no official URL.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["MISSING_OFFICIAL_URL"]) && r.risk_level === "low"
+    },
+    {
+      id: "TC13",
+      name: "High-risk domain keyword",
+      input: {
+        project_name: "Wallet Login",
+        official_url: "https://wallet-login-verify.example.com",
+        description: "Check eligibility.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["HIGH_RISK_DOMAIN_KEYWORD"]) && r.risk_level === "medium"
+    },
+    {
+      id: "TC14",
+      name: "Indonesian scam phrase",
+      input: {
+        project_name: "Klaim Token",
+        official_url: "https://klaim.example.com",
+        description: "Klaim sekarang dan masukkan seed untuk hadiah eksklusif.",
+        required_tasks: ["masukkan seed"],
+        chain: "Base",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["INDONESIAN_SCAM_PHRASE", "SEED_PHRASE_REQUEST"]) && r.risk_level === "critical"
+    },
+    {
+      id: "TC15",
+      name: "Promotional urgency",
+      input: {
+        project_name: "Limited Reward",
+        official_url: "https://reward.example.com",
+        description: "Claim now for a limited time community reward.",
+        required_tasks: ["read announcement"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["PROMOTIONAL_URGENCY"]) && r.risk_level === "low"
+    },
+    {
+      id: "TC16",
+      name: "Missing token and social links",
+      input: {
+        project_name: "Sparse Project",
+        official_url: "https://sparse.example.com",
+        description: "Minimal information page.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "",
+        social_links: []
+      },
+      check: (r) => hasRules(r, ["MISSING_TOKEN_CONTRACT", "MISSING_SOCIAL_LINKS"]) && r.risk_level === "low"
+    },
+    {
+      id: "TC17",
+      name: "Wallet verification",
+      input: {
+        project_name: "Verify Wallet Claim",
+        official_url: "https://verify.example.com",
+        description: "Verify wallet to claim.",
+        required_tasks: ["verify wallet"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["WALLET_VERIFY_REQUEST", "HIGH_RISK_DOMAIN_KEYWORD"]) && r.risk_level === "high"
+    },
+    {
+      id: "TC18",
+      name: "Wallet sync phrase",
+      input: {
+        project_name: "Wallet Sync",
+        official_url: "https://example.com",
+        description: "Sync wallet to activate claim.",
+        required_tasks: ["sync wallet"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/example"]
+      },
+      check: (r) => hasRules(r, ["WALLET_SYNC_REQUEST"]) && r.risk_level === "medium"
+    },
+    {
+      id: "TC19",
+      name: "New known chain zkSync",
+      input: {
+        project_name: "zkSync Airdrop Education",
+        official_url: "https://zksyncproject.com",
+        description: "Education-only project information.",
+        required_tasks: ["read docs"],
+        chain: "zkSync",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/zksync"]
+      },
+      check: (r) => r.risk_level === "low" && !r.rule_hits.includes("WALLET_SYNC_REQUEST")
+    },
+    {
+      id: "TC20",
+      name: "No wallet request with safety docs",
+      input: {
+        project_name: "Safety Docs",
+        official_url: "https://docs.example.com",
+        description: "Do not share private keys or seed phrases. Read safety docs only.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/docs"]
+      },
+      check: (r) => r.risk_level === "low" && !r.rule_hits.includes("PRIVATE_KEY_REQUEST")
+    },
+    {
+      id: "TC21",
+      name: "score_breakdown exists",
+      input: SAMPLE_INPUT,
+      check: (r) => Array.isArray(r.score_breakdown) && r.score_breakdown.length > 0
+    },
+    {
+      id: "TC22",
+      name: "rule_hits include wallet and signing",
+      input: SAMPLE_INPUT,
+      check: (r) => hasRules(r, ["WALLET_CONNECT_REQUEST", "SIGN_MESSAGE_REQUEST"])
+    },
+    {
+      id: "TC23",
+      name: "input_quality detects missing token_contract",
+      input: SAMPLE_INPUT,
+      check: (r) =>
+        r.input_quality &&
+        Array.isArray(r.input_quality.missing_fields) &&
+        r.input_quality.missing_fields.includes("token_contract")
+    },
+    {
+      id: "TC24",
+      name: "false_positive_notes for educational approval",
+      input: {
+        project_name: "Approval Safety",
+        official_url: "https://safety.example.com",
+        description: "Do not approve unlimited spending.",
+        required_tasks: ["read docs"],
+        chain: "Base",
+        token_contract: "0x1234567890abcdef",
+        social_links: ["https://twitter.com/safety"]
+      },
+      check: (r) => r.false_positive_notes.length > 0 && !r.rule_hits.includes("RISKY_APPROVAL_REQUEST")
+    },
+    {
+      id: "TC25",
+      name: "confidence_note exists",
+      input: SAMPLE_INPUT,
+      check: (r) =>
+        typeof r.confidence_note === "string" &&
+        r.confidence_note.toLowerCase().includes("heuristic") &&
+        r.confidence_note.toLowerCase().includes("false positives")
+    }
+  ];
+
+  return tests.map((test) => {
+    const result = scoreAirdrop(test.input);
+    let passed = false;
+    try {
+      passed = Boolean(test.check(result));
+    } catch (_) {
+      passed = false;
+    }
+
+    return {
+      id: test.id,
+      name: test.name,
+      passed,
+      actual_score: result.risk_score,
+      actual_level: result.risk_level,
+      actual_rule_hits: result.rule_hits,
+      actual_flags: result.red_flags
+    };
+  });
+}
+
+const LANDING_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;text-align:center}a{display:inline-block;margin:.4rem;padding:.55rem .9rem;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px}footer{margin-top:2rem;color:#555;font-size:.9rem}</style></head><body><h1>NEXUS-X ARIA</h1><h2>Airdrop Risk Intelligence API</h2><p>Version ${VERSION} — Explainable Scoring for transparent heuristic airdrop risk analysis.</p><p><a href="/try">Try It</a><a href="/examples">Examples</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a><a href="/openapi.json">OpenAPI</a><a href="/health">Health</a></p><footer>Heuristic analysis only. Not financial advice. Not a guarantee of safety.</footer></body></html>`;
+
+const DOCS_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Docs</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.55;max-width:900px}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:6px}code{font-family:monospace}a{color:#2563eb}</style></head><body><h1>NEXUS-X ARIA Documentation</h1><p><strong>Version:</strong> ${VERSION}</p><p>NEXUS-X ARIA provides transparent heuristic airdrop risk scoring.</p><h2>Active Endpoints</h2><ul><li>GET /</li><li>GET /health</li><li>GET /demo</li><li>GET /try</li><li>GET /examples</li><li>GET /docs</li><li>GET /test-pack</li><li>GET /openapi.json</li><li>POST /score-airdrop</li></ul><h2>v0.2.0 Explainable Scoring</h2><p>The scoring response now includes <code>rule_hits</code>, <code>score_breakdown</code>, <code>input_quality</code>, <code>confidence_note</code>, and <code>false_positive_notes</code>.</p><h2>Safety</h2><p>Never enter seed phrases, private keys, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials.</p></body></html>`;
+
+const EXAMPLES_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Examples</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.55;max-width:950px}.case{border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1rem 0}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:6px}</style></head><body><h1>NEXUS-X ARIA Examples</h1><p><strong>Version:</strong> ${VERSION}</p><p>Examples are educational and do not guarantee safety.</p><div class="case"><h2>Low Risk Example</h2><pre>{"project_name":"Legit Community Rewards","official_url":"https://legit.example.com","required_tasks":["read docs"],"chain":"Base"}</pre></div><div class="case"><h2>High Risk Example</h2><pre>{"project_name":"Sign Message Airdrop","description":"Claim by connecting wallet and signing a message."}</pre></div><div class="case"><h2>Critical Risk Example</h2><pre>{"project_name":"Phishing Airdrop","description":"Enter your seed phrase to claim."}</pre></div><div class="case"><h2>False Positive Fixed: zkSync</h2><p>Generic sync substring is not treated as a domain risk by itself.</p></div><div class="case"><h2>False Positive Avoided: Approval Warning</h2><p>Educational warnings like “Do not approve unlimited spending” are not treated as risky approval instructions.</p></div></body></html>`;
+
+const TRY_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Try Page</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:900px}label{display:block;margin-top:1rem;font-weight:bold}input,textarea{width:100%;padding:.65rem;border:1px solid #ccc;border-radius:6px}textarea{min-height:90px}button{margin-top:1rem;padding:.75rem 1.1rem;border:0;border-radius:6px;background:#2563eb;color:#fff;font-weight:bold}.warning{background:#fff3cd;border:1px solid #ffeeba;padding:1rem;border-radius:6px}.result{white-space:pre-wrap;background:#f6f8fa;padding:1rem;border-radius:6px;margin-top:1rem}</style></head><body><h1>NEXUS-X ARIA Try Page</h1><p><strong>Version:</strong> ${VERSION}</p><div class="warning"><strong>Safety warning:</strong> Do not enter private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials.</div><form id="f"><label>Project Name</label><input id="project_name" value="Example Airdrop"><label>Official URL</label><input id="official_url" value="https://example-airdrop.com"><label>Description</label><textarea id="description">Claim free tokens by connecting your wallet and signing a message.</textarea><label>Required Tasks, one per line</label><textarea id="required_tasks">connect wallet
+sign message</textarea><label>Chain</label><input id="chain" value="Base"><label>Token Contract</label><input id="token_contract" value=""><label>Social Links, one per line</label><textarea id="social_links">https://twitter.com/example</textarea><button type="submit">Analyze</button></form><div id="result" class="result">Result will appear here.</div><script>document.getElementById("f").addEventListener("submit",async(e)=>{e.preventDefault();const payload={project_name:project_name.value,official_url:official_url.value,description:description.value,required_tasks:required_tasks.value.split("\\n").filter(Boolean),chain:chain.value,token_contract:token_contract.value,social_links:social_links.value.split("\\n").filter(Boolean)};const res=await fetch("/score-airdrop",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});document.getElementById("result").textContent=JSON.stringify(await res.json(),null,2);});</script></body></html>`;
+
+function getOpenApiSpec() {
+  return {
+    openapi: "3.0.1",
+    info: {
+      title: "NEXUS-X ARIA API",
+      version: VERSION,
+      description: "Transparent heuristic airdrop risk scoring API with explainable scoring."
+    },
+    servers: [
+      { url: "https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev" }
+    ],
+    paths: {
+      "/": { get: { summary: "Landing page", responses: { "200": { description: "HTML landing page" } } } },
+      "/health": { get: { summary: "Health check", responses: { "200": { description: "Service health" } } } },
+      "/demo": { get: { summary: "Demo analysis", responses: { "200": { description: "Demo JSON response" } } } },
+      "/try": { get: { summary: "Browser try page", responses: { "200": { description: "HTML try page" } } } },
+      "/examples": { get: { summary: "Examples page", responses: { "200": { description: "HTML examples page" } } } },
+      "/docs": { get: { summary: "Documentation page", responses: { "200": { description: "HTML docs page" } } } },
+      "/test-pack": { get: { summary: "Internal test pack", responses: { "200": { description: "Test pack results" } } } },
+      "/openapi.json": { get: { summary: "OpenAPI specification", responses: { "200": { description: "OpenAPI JSON" } } } },
+      "/score-airdrop": {
+        post: {
+          summary: "Score airdrop risk",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ScoreRequest" },
+                example: SAMPLE_INPUT
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Risk score response",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ScoreResponse" }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/docs": {
-      "get": {
-        "summary": "HTML documentation"
-      }
-    },
-    "/test-pack": {
-      "get": {
-        "summary": "Internal validation test pack"
-      }
-    },
-    "/openapi.json": {
-      "get": {
-        "summary": "OpenAPI specification"
-      }
-    },
-    "/score-airdrop": {
-      "post": {
-        "summary": "Score an airdrop"
+    components: {
+      schemas: {
+        ScoreRequest: {
+          type: "object",
+          properties: {
+            project_name: { type: "string" },
+            official_url: { type: "string" },
+            description: { type: "string" },
+            required_tasks: { type: "array", items: { type: "string" } },
+            chain: { type: "string" },
+            token_contract: { type: "string" },
+            social_links: { type: "array", items: { type: "string" } }
+          }
+        },
+        ScoreBreakdownItem: {
+          type: "object",
+          properties: {
+            rule_id: { type: "string" },
+            category: { type: "string" },
+            points: { type: "number" },
+            severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+            reason: { type: "string" }
+          }
+        },
+        InputQuality: {
+          type: "object",
+          properties: {
+            level: { type: "string", enum: ["complete", "partial", "weak"] },
+            missing_fields: { type: "array", items: { type: "string" } },
+            notes: { type: "array", items: { type: "string" } }
+          }
+        },
+        ScoreResponse: {
+          type: "object",
+          properties: {
+            service: { type: "string" },
+            version: { type: "string" },
+            risk_score: { type: "number" },
+            risk_level: { type: "string", enum: ["low", "medium", "high", "critical"] },
+            verdict: { type: "string" },
+            red_flags: { type: "array", items: { type: "string" } },
+            safe_actions: { type: "array", items: { type: "string" } },
+            summary: { type: "string" },
+            rule_hits: { type: "array", items: { type: "string" } },
+            score_breakdown: { type: "array", items: { $ref: "#/components/schemas/ScoreBreakdownItem" } },
+            input_quality: { $ref: "#/components/schemas/InputQuality" },
+            confidence_note: { type: "string" },
+            false_positive_notes: { type: "array", items: { type: "string" } }
+          }
+        }
       }
     }
-  }
-};
+  };
+}
 
 async function handleRequest(request) {
-  const { method } = request;
   const url = new URL(request.url);
-  if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (method === "GET" && (url.pathname === "/" || url.pathname === "")) return htmlResponse(LANDING_HTML);
-  if (method === "GET" && url.pathname === "/health") return jsonResponse({ status: "ok", service: "nexus-x-aria", version: VERSION });
+  const method = request.method.toUpperCase();
+
+  if (method === "OPTIONS") return jsonResponse({ ok: true });
+
+  if (method === "GET" && url.pathname === "/") return htmlResponse(LANDING_HTML);
+  if (method === "GET" && url.pathname === "/health") {
+    return jsonResponse({ status: "ok", service: SERVICE, version: VERSION });
+  }
   if (method === "GET" && url.pathname === "/demo") {
-    const result = computeRisk(SAMPLE_INPUT);
-    return jsonResponse({ demo: true, service: "nexus-x-aria", version: VERSION, sample_input: SAMPLE_INPUT, result });
+    return jsonResponse({ demo: true, service: SERVICE, version: VERSION, sample_input: SAMPLE_INPUT, result: scoreAirdrop(SAMPLE_INPUT) });
   }
   if (method === "GET" && url.pathname === "/try") return htmlResponse(TRY_HTML);
   if (method === "GET" && url.pathname === "/examples") return htmlResponse(EXAMPLES_HTML);
   if (method === "GET" && url.pathname === "/docs") return htmlResponse(DOCS_HTML);
   if (method === "GET" && url.pathname === "/test-pack") {
-    const results = TEST_CASES.map((tc) => {
-      const result = computeRisk(tc.input);
-      const passed = result.risk_score >= tc.expected_score_min &&
-        result.risk_score <= tc.expected_score_max &&
-        result.risk_level === tc.expected_level &&
-        tc.expected_flags.every((flag) => result.red_flags.includes(flag));
-      return { id: tc.id, name: tc.name, expected_score_min: tc.expected_score_min, expected_score_max: tc.expected_score_max, actual_score: result.risk_score, expected_level: tc.expected_level, actual_level: result.risk_level, expected_flags: tc.expected_flags, actual_flags: result.red_flags, passed };
+    const results = runTestPack();
+    return jsonResponse({
+      service: SERVICE,
+      version: VERSION,
+      tests: results,
+      total: results.length,
+      passed: results.filter((t) => t.passed).length,
+      failed: results.filter((t) => !t.passed).length
     });
-    return jsonResponse({ service: "nexus-x-aria", version: VERSION, tests: results });
   }
-  if (method === "GET" && url.pathname === "/openapi.json") return jsonResponse(OPENAPI_SPEC);
+  if (method === "GET" && url.pathname === "/openapi.json") return jsonResponse(getOpenApiSpec());
+
   if (method === "POST" && url.pathname === "/score-airdrop") {
-    const contentType = request.headers.get("Content-Type") || "";
-    if (!contentType.toLowerCase().includes("application/json")) return jsonError("Content-Type must be application/json", 415);
-    const bodyText = await request.text();
-    if (bodyText.length > 20000) return jsonError("Request body too large", 413);
-    let data;
-    try { data = JSON.parse(bodyText || "{}"); } catch (_e) { return jsonError("Invalid JSON payload", 400); }
-    const requiredFields = ["project_name", "description", "required_tasks", "social_links"];
-    for (const field of requiredFields) if (!(field in data)) return jsonError(`Missing required field: ${field}`, 400);
-    if (!Array.isArray(data.required_tasks) || !Array.isArray(data.social_links)) return jsonError("Fields 'required_tasks' and 'social_links' must be arrays", 400);
-    return jsonResponse(computeRisk(data));
-  }
-  return jsonResponse({ error: "Not found" }, 404);
-}
-
-function jsonResponse(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }); }
-function htmlResponse(html, status = 200) { return new Response(html, { status, headers: { ...CORS_HEADERS, "Content-Type": "text/html; charset=utf-8" } }); }
-function jsonError(message, status = 400) { return jsonResponse({ error: message }, status); }
-function includesAny(text, phrases) { return phrases.some((phrase) => text.includes(phrase)); }
-
-function computeRisk(input) {
-  let score = 0;
-  const redFlags = [];
-  const tasksLower = (input.required_tasks || []).map((t) => String(t).toLowerCase());
-  const desc = String(input.description || "").toLowerCase();
-  const url = String(input.official_url || "");
-  const chain = String(input.chain || "").toLowerCase();
-  const combinedText = [desc, ...tasksLower].join(" ");
-
-  if (!url) {
-    score += 10; redFlags.push("Official URL missing");
-  } else {
-    if (!url.startsWith("https://")) { score += 10; redFlags.push("Official URL not HTTPS"); }
+    let payload = {};
     try {
-      const domain = new URL(url).hostname.toLowerCase();
-      if (DOMAIN_KEYWORDS_HIGH.some((kw) => domain.includes(kw))) { score += 25; redFlags.push("Official URL contains high-risk wallet or login keyword"); }
-      else if (DOMAIN_KEYWORDS_MEDIUM.some((kw) => domain.includes(kw))) { score += 15; redFlags.push("Official URL contains promotional claim keyword"); }
-      else if (DOMAIN_KEYWORDS_LOW.some((kw) => domain.includes(kw))) { score += 5; redFlags.push("Official URL contains airdrop keyword"); }
-    } catch (_e) { score += 20; redFlags.push("Official URL is invalid or suspicious"); }
+      payload = await request.json();
+    } catch (_) {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    return jsonResponse(scoreAirdrop(payload));
   }
 
-  if (includesAny(combinedText, RECOVERY_SECRET_PHRASES)) { score += 40; redFlags.push("Description asks for wallet recovery secrets"); }
-  if (includesAny(combinedText, WALLET_CONNECTION_PHRASES)) { score += 20; redFlags.push("Requires wallet connection"); }
-  if (includesAny(combinedText, WALLET_VERIFICATION_PHRASES)) { score += 25; redFlags.push("Mentions wallet verification or synchronization"); }
-  if (includesAny(combinedText, SIGNING_PHRASES)) { score += 25; redFlags.push("Requires signing a message or transaction"); }
-  const approvalWarning = includesAny(combinedText, APPROVAL_WARNING_PHRASES);
-  const riskyApproval = includesAny(combinedText, RISKY_APPROVAL_PHRASES);
-  if (riskyApproval && !approvalWarning) { score += 25; redFlags.push("Mentions risky token approvals or spending permissions"); }
-  if (!input.token_contract || String(input.token_contract).trim() === "") { score += 15; redFlags.push("No token contract provided"); }
-  if (!input.social_links || input.social_links.length === 0) { score += 10; redFlags.push("No social links provided"); }
-  if (chain && !KNOWN_CHAINS.includes(chain)) { score += 5; redFlags.push("Blockchain chain is not widely recognized"); }
-  if (includesAny(desc, PROMO_KEYWORDS)) { score += 20; redFlags.push("Description contains promotional or urgency language"); }
-  if (score > 100) score = 100;
-  let riskLevel, verdict;
-  if (score <= 30) { riskLevel = "low"; verdict = "likely safe"; }
-  else if (score <= 60) { riskLevel = "medium"; verdict = "caution"; }
-  else if (score <= 80) { riskLevel = "high"; verdict = "avoid"; }
-  else { riskLevel = "critical"; verdict = "avoid"; }
-  const summary = `The analysis yielded a risk score of ${score}/100 with a ${riskLevel} risk level. ${redFlags.length} red flag(s) detected${redFlags.length ? ": " + redFlags.join(", ") : ""}. Proceed accordingly.`;
-  return { risk_score: score, risk_level: riskLevel, verdict, red_flags: redFlags, safe_actions: ["Use a burner wallet for airdrops", "Verify official links through multiple credible sources", "Avoid unlimited token approvals", "Read and understand any message before signing", "Do not share private keys or seed phrases"], summary };
+  return jsonResponse({ error: "Not found", service: SERVICE, version: VERSION }, 404);
 }
 
-export default { fetch: handleRequest };
+export default {
+  async fetch(request) {
+    return handleRequest(request);
+  }
+};

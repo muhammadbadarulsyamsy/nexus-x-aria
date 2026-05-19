@@ -1,0 +1,28 @@
+{
+  "name": "NEXUS-X ARIA Runtime v0.2.0",
+  "type": "runtime patch",
+  "created_at": "2026-05-19",
+  "runtime_change": true,
+  "cloudflare_deploy_required": true,
+  "github_release_required_after_live_validation": true,
+  "version": "0.2.0",
+  "theme": "Explainable Scoring",
+  "files": [
+    "worker.js",
+    "package.json",
+    "docs/release-snapshot-v0.2.0.md",
+    "docs/scoring-rules-v0.2.0.md",
+    "runtime-v0.2.0-manifest.json"
+  ],
+  "expected_local_checks": [
+    "const VERSION = \"0.2.0\"",
+    "25 local test IDs",
+    "rule_hits present",
+    "score_breakdown present",
+    "input_quality present",
+    "confidence_note present",
+    "false_positive_notes present"
+  ],
+  "recommended_commit_message": "Add explainable scoring runtime v0.2.0",
+  "next_step_after_commit": "Copy worker.js to clipboard, deploy via Cloudflare Dashboard, verify live, then create GitHub release v0.2.0."
+}
