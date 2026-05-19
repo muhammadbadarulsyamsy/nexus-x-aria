@@ -1,0 +1,16 @@
+{
+  "name": "NEXUS-X ARIA Publication Docs Index v0.1",
+  "type": "docs-only patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "cloudflare_deploy_required": false,
+  "github_release_required": false,
+  "automatic_publish": false,
+  "files": [
+    "docs/publication-docs-index.md",
+    "docs/publication-workflow-map.md",
+    "publication-docs-index-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add publication docs index",
+  "next_step_after_commit": "Create Memory Database v0.7, then pause or review repo structure."
+}
