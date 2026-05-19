@@ -1,0 +1,16 @@
+{
+  "name": "NEXUS-X ARIA Dev.to Polish v0.1",
+  "type": "docs-only patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "cloudflare_deploy_required": false,
+  "github_release_required": false,
+  "files": [
+    "docs/devto-article-polished.md",
+    "docs/devto-publishing-checklist.md",
+    "docs/devto-title-options.md",
+    "docs/devto-risk-notes.md"
+  ],
+  "recommended_commit_message": "Add polished Dev.to article draft",
+  "next_step_after_commit": "Review whether to publish manually or prepare README polish."
+}
