@@ -1,4 +1,4 @@
-// NEXUS-X ARIA v0.1.8 – Cloudflare Workers single-file
+// NEXUS-X ARIA v0.1.9 – Cloudflare Workers single-file
 // Scoring improvement release: tiered domain risk, broader scam phrase detection,
 // Indonesian scam phrases, approval-warning context handling, expanded test pack.
 
@@ -8,7 +8,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type"
 };
 
-const VERSION = "0.1.8";
+const VERSION = "0.1.9";
 const KNOWN_CHAINS = [
   "ethereum",
   "arbitrum",
@@ -619,8 +619,49 @@ const TEST_CASES = [
     ]
   }
 ];
-const LANDING_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.4;text-align:center}h1{color:#2c3e50;margin-bottom:.5em}h2{color:#34495e;margin-top:0}p{max-width:700px;margin:1rem auto}.links a{display:inline-block;margin:.5rem;padding:.55rem 1rem;background:#3498db;color:#fff;text-decoration:none;border-radius:4px}.links a:hover{background:#2980b9}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body><h1>NEXUS-X ARIA</h1><h2>Airdrop Risk Intelligence API</h2><p>Version ${VERSION} – transparent airdrop risk scoring for Web3 projects with improved heuristic detection.</p><div class="links"><a href="/try">Try It</a><a href="/demo">Demo</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a><a href="/openapi.json">OpenAPI Spec</a><a href="/health">Health</a></div><p>Endpoint <code>/score-airdrop</code> is available for technical integration via POST JSON.</p><footer>Disclaimer: analysis does not guarantee safety. Always do your own research. Never enter seed phrases, private keys, passwords, OTPs, or wallet credentials.</footer></body></html>`;
-const DOCS_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Documentation</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:850px}h1,h2{color:#2c3e50}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:4px}code{font-family:monospace}ul{padding-left:1.2rem}a{color:#2563eb}</style></head><body><h1>NEXUS-X ARIA</h1><p><strong>Version: ${VERSION}</strong></p><p><strong>Airdrop Risk Intelligence API</strong> – API ini menganalisis informasi airdrop/proyek Web3 dan mengembalikan skor risiko, level risiko, verdict, red flag, rekomendasi tindakan aman, serta ringkasan.</p><h2>Endpoint</h2><ul><li><strong>GET /</strong> – Landing.</li><li><strong>GET /health</strong> – Status dan versi.</li><li><strong>GET /demo</strong> – Demo internal.</li><li><strong>GET /try</strong> – Form browser untuk input custom.</li><li><strong>GET /docs</strong> – Dokumentasi HTML.</li><li><strong>GET /test-pack</strong> – Paket pengujian heuristik.</li><li><strong>GET /openapi.json</strong> – OpenAPI JSON.</li><li><strong>POST /score-airdrop</strong> – Endpoint scoring utama.</li></ul><h2>v0.1.8 Scoring Improvements</h2><ul><li>Domain keyword risk now has high, medium, and low severity tiers.</li><li>The word <code>airdrop</code> in a domain is now low severity.</li><li>Wallet verification phrases are detected.</li><li>Recovery secret requests are penalized more heavily.</li><li>Approval warnings such as <code>do not approve unlimited spending</code> avoid approval penalties.</li><li>Indonesian scam phrases are included.</li><li>Test pack expanded from 11 to 20 scenarios.</li></ul><h2>Try Page</h2><p>Coba analisis custom langsung dari browser: <a href="/try">/try</a></p><h2>Batasan MVP</h2><ul><li>Heuristik sederhana; dapat menghasilkan false positive/negative.</li><li>Tanpa database atau integrasi data eksternal.</li><li>Endpoint publik tanpa autentikasi atau rate limit bawaan.</li></ul><h2>Disclaimer Keamanan</h2><p>Analisis ini bukan nasihat keuangan dan bukan jaminan keamanan. Jangan pernah membagikan private key, seed phrase, password, OTP, atau data rahasia lainnya.</p></body></html>`;
+const LANDING_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.4;text-align:center}h1{color:#2c3e50;margin-bottom:.5em}h2{color:#34495e;margin-top:0}p{max-width:720px;margin:1rem auto}.links a{display:inline-block;margin:.5rem;padding:.55rem 1rem;background:#3498db;color:#fff;text-decoration:none;border-radius:4px}.links a:hover{background:#2980b9}footer{margin-top:2rem;font-size:.8rem;color:#555}</style></head><body><h1>NEXUS-X ARIA</h1><h2>Airdrop Risk Intelligence API</h2><p>Version ${VERSION} – transparent airdrop risk scoring for Web3 projects with improved heuristic detection and expanded examples.</p><div class="links"><a href="/try">Try It</a><a href="/demo">Demo</a><a href="/examples">Examples</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a><a href="/openapi.json">OpenAPI Spec</a><a href="/health">Health</a></div><p>Endpoint <code>/score-airdrop</code> is available for technical integration via POST JSON.</p><footer>Disclaimer: analysis does not guarantee safety. Always do your own research. Never enter seed phrases, private keys, passwords, OTPs, or wallet credentials.</footer></body></html>`;
+const DOCS_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Documentation</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:850px}h1,h2{color:#2c3e50}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:4px}code{font-family:monospace}ul{padding-left:1.2rem}a{color:#2563eb}</style></head><body><h1>NEXUS-X ARIA</h1><p><strong>Version: ${VERSION}</strong></p><p><strong>Airdrop Risk Intelligence API</strong> – API ini menganalisis informasi airdrop/proyek Web3 dan mengembalikan skor risiko, level risiko, verdict, red flag, rekomendasi tindakan aman, serta ringkasan.</p><h2>Endpoint</h2><ul><li><strong>GET /</strong> – Landing.</li><li><strong>GET /health</strong> – Status dan versi.</li><li><strong>GET /demo</strong> – Demo internal.</li><li><strong>GET /try</strong> – Form browser untuk input custom.</li><li><strong>GET /examples</strong> – Contoh kasus low, medium, high, critical, false-positive fixes, dan scam Bahasa Indonesia.</li><li><strong>GET /docs</strong> – Dokumentasi HTML.</li><li><strong>GET /test-pack</strong> – Paket pengujian heuristik.</li><li><strong>GET /openapi.json</strong> – OpenAPI JSON.</li><li><strong>POST /score-airdrop</strong> – Endpoint scoring utama.</li></ul><h2>v0.1.9 Expanded Examples</h2><ul><li>Menambahkan halaman <a href="/examples">/examples</a>.</li><li>Menjelaskan contoh low, medium, high, dan critical risk.</li><li>Menjelaskan false-positive yang sudah diperbaiki, termasuk zkSync dan approval warning.</li><li>Menambahkan contoh scam Bahasa Indonesia untuk edukasi.</li><li>Scoring engine tetap sama seperti v0.1.8 hotfix; test pack tetap 20/20.</li></ul><h2>Try Page</h2><p>Coba analisis custom langsung dari browser: <a href="/try">/try</a></p><h2>OpenAPI</h2><p>Machine-readable OpenAPI specification tersedia di <code>/openapi.json</code>.</p><h2>Batasan MVP</h2><ul><li>Analisis berbasis heuristik sederhana dan dapat menghasilkan false positive/negative.</li><li>Tidak ada integrasi data eksternal atau basis data.</li><li>Semua endpoint publik tanpa autentikasi atau rate limit bawaan.</li></ul><h2>Disclaimer Keamanan</h2><p>Analisis ini bukan nasihat keuangan dan bukan jaminan keamanan. Jangan pernah membagikan private key, seed phrase, password, OTP, atau data rahasia lainnya.</p></body></html>`;
+const EXAMPLES_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Examples</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.55;max-width:950px}h1,h2,h3{color:#2c3e50}pre{background:#f6f8fa;padding:1rem;overflow-x:auto;border-radius:6px}code{font-family:monospace}.case{border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1rem 0}.low{border-left:6px solid #2ecc71}.medium{border-left:6px solid #f1c40f}.high{border-left:6px solid #e67e22}.critical{border-left:6px solid #e74c3c}.note{background:#fff3cd;border:1px solid #ffeeba;padding:.8rem;border-radius:6px}.nav a{margin-right:.75rem}</style></head><body><div class="nav"><a href="/">Home</a><a href="/try">Try It</a><a href="/docs">Docs</a><a href="/test-pack">Test Pack</a></div><h1>NEXUS-X ARIA Examples</h1><p><strong>Version:</strong> ${VERSION}</p><p>Halaman ini menjelaskan contoh interpretasi hasil ARIA. Contoh ini bersifat edukatif, bukan jaminan keamanan.</p><div class="note"><strong>Safety note:</strong> Jangan pernah memasukkan private key, seed phrase, recovery phrase, password, OTP, cookie, API key, atau kredensial wallet.</div><div class="case low"><h2>1. Low Risk Example</h2><p>Contoh airdrop dengan HTTPS, chain dikenal, token contract tersedia, social links tersedia, dan tidak meminta connect wallet/sign message.</p><pre>{
+  "project_name": "Legit Community Rewards",
+  "official_url": "https://legitproject.com",
+  "description": "Complete simple social tasks to earn loyalty points.",
+  "required_tasks": ["follow Twitter", "join Discord"],
+  "chain": "Ethereum",
+  "token_contract": "0x1234",
+  "social_links": ["https://twitter.com/legit"]
+}</pre><p><strong>Interpretasi:</strong> Biasanya low risk karena tidak ada red flag besar.</p></div><div class="case medium"><h2>2. Medium Risk Example</h2><p>Contoh yang meminta wallet connection dan memakai domain/wallet keyword.</p><pre>{
+  "project_name": "Wallet Verify Claim",
+  "official_url": "https://wallet-verify-claim.com",
+  "description": "Verify wallet to access your reward allocation.",
+  "required_tasks": ["join Telegram"],
+  "chain": "Base",
+  "token_contract": "0x444",
+  "social_links": ["https://twitter.com/verify"]
+}</pre><p><strong>Interpretasi:</strong> Medium risk karena ada wallet verification dan domain high-risk keyword.</p></div><div class="case high"><h2>3. High Risk Example</h2><p>Contoh gabungan beberapa sinyal: sign message, domain claim/free, contract kosong, chain tidak dikenal.</p><pre>{
+  "project_name": "Sign Message Airdrop",
+  "official_url": "http://free-airdrop.com",
+  "description": "Sign a message to prove eligibility.",
+  "required_tasks": ["sign message"],
+  "chain": "UnknownChain",
+  "token_contract": "",
+  "social_links": ["https://twitter.com/freeairdrop"]
+}</pre><p><strong>Interpretasi:</strong> Banyak red flag sedang dapat mendorong skor ke high.</p></div><div class="case critical"><h2>4. Critical Risk Example</h2><p>Contoh sangat berbahaya karena meminta seed phrase/recovery secret atau approval berisiko.</p><pre>{
+  "project_name": "Phishing Airdrop",
+  "official_url": "https://scamlogin-airdrop.com",
+  "description": "Enter your seed phrase and approve unlimited token spending to claim.",
+  "required_tasks": ["connect wallet", "sign message"],
+  "chain": "Ethereum",
+  "token_contract": "",
+  "social_links": []
+}</pre><p><strong>Interpretasi:</strong> Critical. Permintaan seed phrase/private key harus dianggap bahaya besar.</p></div><div class="case critical"><h2>5. Indonesian Scam Example</h2><pre>{
+  "project_name": "Klaim Token",
+  "official_url": "https://valid.com",
+  "description": "Masukkan seed phrase untuk klaim sekarang hadiah eksklusif.",
+  "required_tasks": ["hubungkan dompet"],
+  "chain": "Base",
+  "token_contract": "",
+  "social_links": []
+}</pre><p><strong>Interpretasi:</strong> ARIA v0.1.8+ mulai mendeteksi frasa scam Bahasa Indonesia seperti <code>masukkan seed</code>, <code>klaim sekarang</code>, dan <code>hadiah eksklusif</code>.</p></div><div class="case low"><h2>6. False Positive Fixed: zkSync</h2><p>Kasus lama: <code>zksyncproject.com</code> mengandung substring <code>sync</code>, sehingga pernah salah kena high-risk domain flag.</p><p><strong>Perbaikan:</strong> keyword domain umum <code>sync</code> dihapus. Frasa berbahaya <code>sync wallet</code> tetap dideteksi di level teks.</p></div><div class="case low"><h2>7. False Positive Avoided: Approval Warning</h2><p>Kalimat seperti <code>Do not approve unlimited spending</code> adalah peringatan edukatif, bukan instruksi scam.</p><p><strong>Perbaikan:</strong> ARIA mengenali konteks warning seperti <code>do not approve</code>, <code>jangan approve</code>, dan <code>hindari approval</code>.</p></div><h2>Next Step</h2><p>Gunakan <a href="/try">/try</a> untuk mencoba contoh Anda sendiri.</p></body></html>`;
 const TRY_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>NEXUS-X ARIA Try Page</title><style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.5;max-width:900px}h1,h2{color:#2c3e50}label{display:block;margin-top:1rem;font-weight:bold}input,textarea{width:100%;padding:.6rem;margin-top:.25rem;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;font-family:Arial,sans-serif}textarea{min-height:90px}button{margin-top:1rem;padding:.7rem 1.2rem;border:0;border-radius:4px;background:#3498db;color:white;font-weight:bold;cursor:pointer}.warning{background:#fff3cd;border:1px solid #ffeeba;padding:.8rem;border-radius:4px}.result{margin-top:1.5rem;padding:1rem;border-radius:6px;background:#f6f8fa;white-space:pre-wrap}.small{color:#555;font-size:.9rem}.nav a{margin-right:.75rem}</style></head><body><div class="nav"><a href="/">Home</a><a href="/docs">Docs</a><a href="/demo">Demo</a><a href="/test-pack">Test Pack</a></div><h1>NEXUS-X ARIA Try Page</h1><p><strong>Version:</strong> ${VERSION}</p><div class="warning"><strong>Safety warning:</strong> Do not enter private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, API keys, or wallet credentials. This tool provides heuristic analysis only and does not guarantee safety.</div><form id="aria-form"><label for="project_name">Project Name</label><input id="project_name" value="Example Airdrop" required><label for="official_url">Official URL</label><input id="official_url" value="https://example-airdrop.com"><label for="description">Description</label><textarea id="description" required>Claim free tokens by connecting your wallet and signing a message.</textarea><label for="required_tasks">Required Tasks</label><textarea id="required_tasks" required>connect wallet
 join Discord
 sign message</textarea><p class="small">One task per line, or separate with commas.</p><label for="chain">Chain</label><input id="chain" value="Base"><label for="token_contract">Token Contract</label><input id="token_contract" value=""><label for="social_links">Social Links</label><textarea id="social_links">https://twitter.com/example
@@ -658,6 +699,17 @@ const OPENAPI_SPEC = {
         "summary": "Browser form for custom scoring"
       }
     },
+    "/examples": {
+      get: {
+        summary: "Expanded examples",
+        responses: {
+          "200": {
+            description: "Examples page",
+            content: { "text/html": { schema: { type: "string" } } }
+          }
+        }
+      }
+    },
     "/docs": {
       "get": {
         "summary": "HTML documentation"
@@ -692,6 +744,7 @@ async function handleRequest(request) {
     return jsonResponse({ demo: true, service: "nexus-x-aria", version: VERSION, sample_input: SAMPLE_INPUT, result });
   }
   if (method === "GET" && url.pathname === "/try") return htmlResponse(TRY_HTML);
+  if (method === "GET" && url.pathname === "/examples") return htmlResponse(EXAMPLES_HTML);
   if (method === "GET" && url.pathname === "/docs") return htmlResponse(DOCS_HTML);
   if (method === "GET" && url.pathname === "/test-pack") {
     const results = TEST_CASES.map((tc) => {
