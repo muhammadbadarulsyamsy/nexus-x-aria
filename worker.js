@@ -207,7 +207,7 @@ function scoreAirdrop(rawInput) {
     addSignal(
       "NON_HTTPS_URL",
       "url_security",
-      20,
+      25,
       "medium",
       "Official URL does not use HTTPS.",
       "Official URL does not use HTTPS"
@@ -300,37 +300,59 @@ function scoreAirdrop(rawInput) {
     );
   }
 
-  if (containsAny(text, ["seed phrase", "mnemonic", "recovery phrase", "secret recovery phrase", "frasa pemulihan", "masukkan seed"])) {
-    addSignal(
-      "SEED_PHRASE_REQUEST",
-      "secret_request",
-      85,
-      "critical",
-      "Project asks for seed phrase, mnemonic, or recovery phrase.",
-      "Requests seed phrase, mnemonic, or recovery phrase"
-    );
-  }
+  const educationalSecretWarning = containsAny(text, [
+    "do not share private key",
+    "do not share private keys",
+    "do not share seed phrase",
+    "do not share seed phrases",
+    "never share private key",
+    "never share private keys",
+    "never share seed phrase",
+    "never share seed phrases",
+    "jangan bagikan private key",
+    "jangan bagikan seed phrase",
+    "jangan pernah bagikan private key",
+    "jangan pernah bagikan seed phrase"
+  ]);
 
-  if (containsAny(text, ["private key", "kunci privat", "masukkan private key"])) {
-    addSignal(
-      "PRIVATE_KEY_REQUEST",
-      "secret_request",
-      85,
-      "critical",
-      "Project asks for private key.",
-      "Requests private key"
+  if (educationalSecretWarning) {
+    if (!ruleHits.includes("EDUCATIONAL_SECRET_WARNING")) ruleHits.push("EDUCATIONAL_SECRET_WARNING");
+    falsePositiveNotes.push(
+      "Educational wallet secret warning detected; private-key or seed-phrase language was not penalized as a credential request."
     );
-  }
+  } else {
+    if (containsAny(text, ["seed phrase", "mnemonic", "recovery phrase", "secret recovery phrase", "frasa pemulihan", "masukkan seed"])) {
+      addSignal(
+        "SEED_PHRASE_REQUEST",
+        "secret_request",
+        85,
+        "critical",
+        "Project asks for seed phrase, mnemonic, or recovery phrase.",
+        "Requests seed phrase, mnemonic, or recovery phrase"
+      );
+    }
 
-  if (containsAny(text, ["recovery secret", "secret phrase"])) {
-    addSignal(
-      "SECRET_RECOVERY_REQUEST",
-      "secret_request",
-      80,
-      "critical",
-      "Project asks for recovery secret phrase.",
-      "Requests wallet recovery secret"
-    );
+    if (containsAny(text, ["private key", "kunci privat", "masukkan private key"])) {
+      addSignal(
+        "PRIVATE_KEY_REQUEST",
+        "secret_request",
+        85,
+        "critical",
+        "Project asks for private key.",
+        "Requests private key"
+      );
+    }
+
+    if (containsAny(text, ["recovery secret", "secret phrase"])) {
+      addSignal(
+        "SECRET_RECOVERY_REQUEST",
+        "secret_request",
+        80,
+        "critical",
+        "Project asks for recovery secret phrase.",
+        "Requests wallet recovery secret"
+      );
+    }
   }
 
   const approvalLanguage = containsAny(text, [
