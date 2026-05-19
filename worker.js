@@ -40,7 +40,6 @@ const DOMAIN_KEYWORDS_HIGH = [
   "wallet-verify",
   "connect-wallet",
   "restore",
-  "sync",
   "rectify"
 ];
 const DOMAIN_KEYWORDS_MEDIUM = [
