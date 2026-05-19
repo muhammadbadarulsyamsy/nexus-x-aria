@@ -1,149 +1,113 @@
 # NEXUS-X ARIA
 
-**Transparent airdrop risk scoring**
+Transparent heuristic airdrop risk scoring API for Web3 projects.
 
-NEXUS-X ARIA is a lightweight, serverless Airdrop Risk Intelligence API. It analyzes airdrop or Web3 project metadata and returns a transparent heuristic risk score, risk level, verdict, red flags, safe actions, and a human-readable summary.
+NEXUS-X ARIA helps identify common airdrop risk signals from project metadata such as URL, description, required tasks, chain, token contract, and social links. It returns a risk score, risk level, verdict, red flags, safe actions, and a short summary.
 
-> Current version: **v0.1.5**  
-> Status: **Live MVP / passive publication ready**
+> ARIA is an educational and informational MVP. It does not guarantee safety and is not financial advice.
 
 ---
 
-## Base URL
+## Current Status
 
-```text
-https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev
-```
+| Item | Status |
+|---|---|
+| Runtime | `v0.1.9` |
+| Deployment | Cloudflare Workers |
+| Repository | Public |
+| License | MIT |
+| OpenAPI | Available |
+| Try Page | Available |
+| Examples Page | Available |
+| Test Pack | 20/20 passed |
+| Monetization | Not enabled |
+
+---
+
+## Live Links
+
+| Resource | Link |
+|---|---|
+| Live API / Landing Page | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev |
+| Try Page | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/try |
+| Examples | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/examples |
+| Documentation | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/docs |
+| OpenAPI JSON | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/openapi.json |
+| Test Pack | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/test-pack |
+| Health Check | https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/health |
+| Latest Release | https://github.com/muhammadbadarulsyamsy/nexus-x-aria/releases/tag/v0.1.9 |
 
 ---
 
 ## What ARIA Does
 
-ARIA accepts structured information about an airdrop or Web3 project, including:
+ARIA accepts airdrop or Web3 project metadata and returns a structured risk analysis.
 
-- project name
-- official URL
-- description
-- required tasks
-- blockchain chain
-- token contract
-- social links
+It can help identify common risk signals such as:
 
-It then applies transparent heuristic scoring rules to detect risk signals such as:
-
-- missing or non-HTTPS URLs
+- non-HTTPS URLs
 - suspicious domain keywords
-- requests to connect a wallet
-- requests to sign messages or transactions
-- requests for seed phrase, recovery phrase, or private key
-- token approval / permit / unlimited approval language
+- wallet connection requests
+- signing requests
+- seed phrase, private key, recovery phrase, or mnemonic requests
+- risky approval language
+- promotional or urgency language
 - missing token contract
 - missing social links
 - unknown chain
-- promotional language such as “free tokens”, “urgent”, or “guaranteed”
+- selected Indonesian scam phrases
 
-ARIA does **not** connect to wallets, sign transactions, trade, mine, store secrets, or manage funds.
-
----
-
-## Endpoint List
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/` | Public landing page |
-| GET | `/health` | Health check and version status |
-| GET | `/demo` | Browser-friendly sample scoring result |
-| GET | `/docs` | HTML documentation page |
-| GET | `/test-pack` | Runs 11 internal scoring validation tests |
-| GET | `/openapi.json` | Machine-readable OpenAPI 3.0.1 specification |
-| POST | `/score-airdrop` | Main risk scoring API endpoint |
+ARIA is intentionally transparent: the response includes red flags and safe actions so users can understand why a score was produced.
 
 ---
 
-## Quick Start
+## Active Endpoints
 
-### 1. Check API health
-
-Open in browser:
-
-```text
-https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/health
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "service": "nexus-x-aria",
-  "version": "0.1.5"
-}
-```
-
-### 2. Try the demo
-
-Open in browser:
-
-```text
-https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/demo
-```
-
-This returns a built-in sample input and scoring result.
-
-### 3. View the documentation
-
-```text
-https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/docs
-```
-
-### 4. View the OpenAPI spec
-
-```text
-https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/openapi.json
-```
+| Endpoint | Method | Purpose |
+|---|---:|---|
+| `/` | `GET` | Landing page |
+| `/health` | `GET` | Service status and version |
+| `/demo` | `GET` | Demo analysis |
+| `/try` | `GET` | Browser form for custom scoring |
+| `/examples` | `GET` | Educational examples and false-positive notes |
+| `/docs` | `GET` | HTML documentation |
+| `/test-pack` | `GET` | Internal validation test pack |
+| `/openapi.json` | `GET` | OpenAPI 3.0.1 specification |
+| `/score-airdrop` | `POST` | Main scoring endpoint |
 
 ---
 
-## Example Request
+## Input Fields
 
-`POST /score-airdrop`
-
-```http
-POST /score-airdrop HTTP/1.1
-Host: nexus-x-aria.muhammad-badarul-syamsy.workers.dev
-Content-Type: application/json
-```
+`POST /score-airdrop` accepts JSON fields such as:
 
 ```json
 {
   "project_name": "Example Airdrop",
   "official_url": "https://example-airdrop.com",
   "description": "Claim free tokens by connecting your wallet and signing a message.",
-  "required_tasks": ["connect wallet", "join Discord", "sign message"],
+  "required_tasks": ["connect wallet", "sign message"],
   "chain": "Base",
   "token_contract": "",
-  "social_links": [
-    "https://twitter.com/example",
-    "https://discord.gg/example"
-  ]
+  "social_links": ["https://twitter.com/example"]
 }
 ```
 
 ---
 
-## Example Response
+## Output Fields
+
+ARIA returns fields such as:
 
 ```json
 {
-  "risk_score": 100,
+  "risk_score": 85,
   "risk_level": "critical",
   "verdict": "avoid",
   "red_flags": [
-    "Official URL contains suspicious domain",
     "Requires wallet connection",
     "Requires signing a message or transaction",
-    "No token contract provided",
-    "Description contains promotional or unrealistic language"
+    "No token contract provided"
   ],
   "safe_actions": [
     "Use a burner wallet for airdrops",
@@ -152,91 +116,176 @@ Content-Type: application/json
     "Read and understand any message before signing",
     "Do not share private keys or seed phrases"
   ],
-  "summary": "The analysis yielded a risk score of 100/100 with a critical risk level. 5 red flag(s) detected: Official URL contains suspicious domain, Requires wallet connection, Requires signing a message or transaction, No token contract provided, Description contains promotional or unrealistic language. Proceed accordingly."
+  "summary": "The analysis yielded a risk score based on the provided input."
 }
+```
+
+The exact score depends on the current rule set.
+
+---
+
+## Example Usage
+
+### Browser
+
+Use the Try Page:
+
+```text
+https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/try
+```
+
+### cURL
+
+```bash
+curl -s https://nexus-x-aria.muhammad-badarul-syamsy.workers.dev/score-airdrop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_name": "Example Airdrop",
+    "official_url": "https://example-airdrop.com",
+    "description": "Claim free tokens by connecting your wallet and signing a message.",
+    "required_tasks": ["connect wallet", "sign message"],
+    "chain": "Base",
+    "token_contract": "",
+    "social_links": ["https://twitter.com/example"]
+  }'
 ```
 
 ---
 
-## Output Fields
+## Version v0.1.9
 
-| Field | Meaning |
+v0.1.9 focuses on expanded examples and better public-facing explanation.
+
+Added or improved:
+
+- `/examples` page
+- low, medium, high, and critical example cases
+- Indonesian scam phrase examples
+- zkSync false-positive case note
+- approval warning false-positive note
+- OpenAPI `/examples` path
+- OpenAPI `info.version` fixed to `0.1.9`
+
+Validation result:
+
+```text
+/health version: 0.1.9
+/openapi.json info.version: 0.1.9
+/test-pack tests: 20
+passed:true: 20
+passed:false: 0
+```
+
+---
+
+## Documentation Files
+
+Important repository documents:
+
+| File | Purpose |
 |---|---|
-| `risk_score` | Numeric score from 0 to 100. Higher means more risk signals were detected. |
-| `risk_level` | Risk category: `low`, `medium`, `high`, or `critical`. |
-| `verdict` | Short recommendation: `likely safe`, `caution`, or `avoid`. |
-| `red_flags` | Specific risk indicators detected in the input. |
-| `safe_actions` | Recommended safety practices. |
-| `summary` | Human-readable summary of the result. |
+| `docs/api-usage.md` | API usage notes |
+| `docs/examples.md` | Basic examples |
+| `docs/examples-expanded.md` | Expanded example cases |
+| `docs/scoring-rules.md` | Scoring rule notes |
+| `docs/scoring-rules-v0.1.8.md` | v0.1.8 scoring notes |
+| `docs/false-positive-cases.md` | False-positive notes |
+| `docs/indonesian-scam-examples.md` | Indonesian scam examples |
+| `docs/publication-kit-v0.2.md` | Passive publication text kit |
+| `docs/devto-article-polished.md` | Polished educational article draft |
+| `docs/passive-listing-checklist.md` | Passive listing safety checklist |
+| `docs/maintainer-checklist.md` | Maintainer release checklist |
+| `docs/allowed-claims.md` | Safe and forbidden claims |
+| `docs/do-not-use-yet.md` | Actions to avoid for now |
+| `SECURITY.md` | Security policy |
+| `DISCLAIMER.md` | Disclaimer |
+| `CHANGELOG.md` | Changelog |
+
+---
+
+## Safe Claims
+
+Reasonable claims:
+
+- ARIA provides heuristic airdrop risk scoring.
+- ARIA helps identify common risk signals.
+- ARIA is educational and informational.
+- ARIA uses transparent rule-based scoring.
+- ARIA includes a Try Page, examples, OpenAPI, and test pack.
+- ARIA does not connect to wallets.
+- ARIA does not request seed phrases or private keys.
+
+Do not claim:
+
+- guaranteed scam detection
+- guaranteed wallet safety
+- detects all phishing
+- prevents all scams
+- financial advice
+- investment advice
+- certified security audit
+- enterprise-grade fraud prevention
+
+---
+
+## Limitations
+
+ARIA is still an MVP.
+
+Current limitations:
+
+- heuristic-only scoring
+- possible false positives
+- possible false negatives
+- no external reputation feed
+- no blockchain explorer lookup
+- no transaction simulation
+- no account system
+- no custom API key/rate limit system
+- no monetization
+- not a complete security product
 
 ---
 
 ## Safety Disclaimer
 
-NEXUS-X ARIA provides heuristic risk analysis for informational and educational purposes only.
+NEXUS-X ARIA provides heuristic analysis for educational and informational purposes only.
 
-It is **not** financial advice, investment advice, legal advice, or a guarantee of safety. A low score does not prove that an airdrop is safe, and a high score does not prove malicious intent.
+It does not guarantee safety, does not provide financial advice, and must not be treated as a complete security product.
 
-Always verify official sources, use caution, and never share private keys, seed phrases, recovery phrases, passwords, OTPs, cookies, or login tokens.
+Never enter or share:
 
----
+- seed phrases
+- private keys
+- recovery phrases
+- passwords
+- OTPs
+- cookies
+- API keys
+- wallet credentials
 
-## MVP Limitations
-
-ARIA v0.1.5 is an MVP and has important limitations:
-
-- scoring is heuristic and rule-based
-- no external blockchain explorer is queried
-- no contract reputation database is used
-- no phishing database is used
-- no authentication or custom rate limit is implemented yet
-- unknown chains may be penalized even if legitimate
-- domain keyword matching can create false positives
-- results may include false positives or false negatives
+Always verify information independently before interacting with any Web3 project.
 
 ---
 
-## Infrastructure Status
+## Local Development Notes
 
-Current deployment:
+This project currently uses a single-file Cloudflare Worker style.
 
-- Cloudflare Workers
-- single-file JavaScript Worker
-- no database
-- no API key
-- no secret
-- no VPS
-- no GitHub dependency required for runtime
-- no terminal required for the current live deployment
+Main runtime file:
 
----
+```text
+worker.js
+```
 
-## Roadmap
+Important note for Android/Termux workflow:
 
-### v0.2.x
-
-- Improve heuristic scoring
-- Add more test cases
-- Refine false-positive handling
-- Explore external reputation data only after safety review
-
-### v0.3.x
-
-- Consider rate limiting
-- Consider optional API key support
-- Add clearer integration examples
-
-### v1.x
-
-- More mature scoring model
-- Stronger documentation
-- Marketplace readiness review
-- Monetization review only after product validation
+- Wrangler may not work in Termux Android.
+- Current deployment workflow uses Cloudflare Dashboard paste/deploy.
+- Docs-only patches do not require Cloudflare deploy.
 
 ---
 
-## Passive Distribution Note
+## License
 
-This project is intended for passive publication through documentation, repositories, developer directories, and educational writing.
-
-Do not use this project for spam, unsolicited direct messages, aggressive outbound sales, or misleading claims. The API does not guarantee airdrop safety and should be presented as a transparent heuristic tool only.
+MIT License.
