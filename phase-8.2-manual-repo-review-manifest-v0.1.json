@@ -1,0 +1,20 @@
+{
+  "name": "NEXUS-X ARIA Phase 8.2 Manual Repo Review Checklist v0.1",
+  "type": "docs-only checklist patch",
+  "created_at": "2026-05-19",
+  "runtime_change": false,
+  "worker_js_changed": false,
+  "package_json_changed": false,
+  "cloudflare_deploy_required": false,
+  "github_runtime_release_required": false,
+  "memory_database_rule": "PROJECT_MEMORY_DATABASE.txt append-only after phase validation",
+  "files": [
+    "docs/manual-repo-review-checklist-v0.1.md",
+    "docs/repo-review-scope-map-v0.1.md",
+    "docs/repo-public-safety-review-v0.1.md",
+    "docs/repo-review-findings-template-v0.1.md",
+    "docs/repo-review-git-validation-v0.1.md",
+    "phase-8.2-manual-repo-review-manifest-v0.1.json"
+  ],
+  "recommended_commit_message": "Add Phase 8.2 manual repo review checklist"
+}
